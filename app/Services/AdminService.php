@@ -19,9 +19,6 @@ use Illuminate\Support\Facades\DB;
 
 class AdminService
 {
-    /**
-     * Validate a shop status (active / rejected).
-     */
     public function validateShop(string $shopId, string $adminId, string $status): Shop
     {
         $shop = Shop::findOrFail($shopId);
@@ -31,6 +28,12 @@ class AdminService
             'validated_by' => $adminId,
             'validated_at' => now(),
         ]);
+
+        if ($shop->owner) {
+            $shop->owner->update([
+                'status' => $status,
+            ]);
+        }
 
         return $shop;
     }

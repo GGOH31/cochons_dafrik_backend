@@ -30,7 +30,7 @@ class StoreShopRequest extends FormRequest
             'status' => ['nullable', new Enum(AccountStatus::class)],
             'validated_by' => ['nullable', 'uuid', 'exists:users,id'],
             'validated_at' => ['nullable', 'date'],
-            'supporting_docs_url' => ['nullable', 'string'],
+            'supporting_docs_file' => ['nullable', 'string'],
             'opening_hours' => ['nullable', 'array'],
             'delivery_zone' => ['nullable', 'string'],
         ];

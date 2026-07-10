@@ -35,11 +35,20 @@ class VendeurService
 
         return DB::transaction(function () use ($user, $data) {
             $logoUrl = null;
+            $supportingDocsUrl = null;
+
             if (!empty($data['logo_file']) && $data['logo_file'] instanceof \Illuminate\Http\UploadedFile) {
                 $uploaded = CloudinaryService::uploadImage($data['logo_file'], 'shops');
                 $logoUrl = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
             } elseif (!empty($data['logo_url'])) {
                 $logoUrl = $data['logo_url'];
+            }
+
+            if (!empty($data['supporting_docs_file']) && $data['supporting_docs_file'] instanceof \Illuminate\Http\UploadedFile) {
+                $uploaded = CloudinaryService::uploadImage($data['supporting_docs_file'], 'shops');
+                $supportingDocsUrl = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
+            } elseif (!empty($data['supporting_docs_url'])) {
+                $supportingDocsUrl = $data['supporting_docs_url'];
             }
 
             $shop = Shop::create([
@@ -55,7 +64,7 @@ class VendeurService
                 'delivery_fee_fcfa' => $data['delivery_fee_fcfa'] ?? 0,
                 'min_order_fcfa' => $data['min_order_fcfa'] ?? 0,
                 'status' => AccountStatus::PENDING,
-                'supporting_docs_url' => $data['supporting_docs_url'] ?? null,
+                'supporting_docs_url' => $supportingDocsUrl,
                 'opening_hours' => $data['opening_hours'] ?? null,
                 'delivery_zone' => $data['delivery_zone'] ?? null,
             ]);

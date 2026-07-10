@@ -24,6 +24,15 @@ class StoreUserRequest extends FormRequest
             'password' => ['nullable', 'string', 'min:6'],
             'fcm_token' => ['nullable', 'string'],
             'status' => ['nullable', new Enum(AccountStatus::class)],
+            
+            // Nested shop validation for vendors
+            'shop' => ['required_if:role,' . UserRole::VENDEUR->value, 'array'],
+            'shop.name' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:140'],
+            'shop.description' => ['nullable', 'string'],
+            'shop.commune' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:80'],
+            'shop.address' => ['nullable', 'string'],
+            'shop.logo_file' => ['nullable', 'file', 'image', 'max:5120'],
+            'shop.supporting_docs_file' => ['required_if:role,' . UserRole::VENDEUR->value, 'file', 'max:10240'],
         ];
     }
 }

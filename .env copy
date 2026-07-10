@@ -17,6 +17,12 @@ CLOUDINARY_URL=cloudinary://125627124948882:5O2VmJJA4C4VR-AQx594PS9VWuk@dqbbfyie
 CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 CLOUDINARY_NOTIFICATION_URL=
 
+IKODDI_API_KEY=YXpPl4d3wdnYYOPdAQtODBmtjsbTj3Gr
+IKODDI_ORGANIZATION_ID=votre_organization_id
+#IKODDI_BASE_URL=https://api.ikoddi.com/api/v1
+# Pour les tests, utilisez plutôt :
+IKODDI_BASE_URL=https://api.staging.ikoddi.com/api/v1
+
 BCRYPT_ROUNDS=12
 
 LOG_CHANNEL=stack

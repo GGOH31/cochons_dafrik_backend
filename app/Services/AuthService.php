@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 class AuthService
 {
     /**
-     * Send a 6-digit verification code via OTP SMS.
+     * Send a 6-digit verification code via OTP SMS using IkoddiService.
      */
     public function sendOtp(string $phone): string
     {
@@ -26,11 +26,17 @@ class AuthService
             'expires_at' => $expiresAt,
         ]);
 
-        // Send OTP via SMS
-        $message = "Votre code de validation Cochons d'Afrik est : {$code}. Valable 5 minutes.";
-        app(SmsPushService::class)->sendSms($phone, $message);
+        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+        $recipient = $cleanPhone;
+        
+        if (str_starts_with($recipient, '225')) {
+            $recipient = substr($recipient, 3);
+        }
 
-        // For simulation/debug purposes we return the code (in prod you might return status)
+        // Send OTP via SMS using IkoddiService
+        $message = "Votre code de validation Cochons d'Afrik est : {$code}. Valable 5 minutes.";
+        app(IkoddiService::class)->sendSms([$recipient], $message, 'C.DAFRIK', 'CI', '225');
+
         return $code;
     }
 
@@ -58,16 +64,20 @@ class AuthService
         $user = User::where('phone', $phone)->first();
 
         if ($user) {
-            // Verify phone if not already done
             if (!$user->phone_verified_at) {
-                $user->update(['phone_verified_at' => now()]);
+                $user->phone_verified_at = now();
             }
 
-            if ($user->status === AccountStatus::SUSPENDED) {
-                throw ValidationException::withMessages([
-                    'phone' => ['Votre compte a été suspendu.'],
-                ]);
+            // Client status flow: PENDING -> ACTIVE
+            if ($user->role === UserRole::CLIENT && $user->status === AccountStatus::PENDING) {
+                $user->status = AccountStatus::ACTIVE;
             }
+            // Vendeur status flow: PENDING -> SUSPENDED
+            elseif ($user->role === UserRole::VENDEUR && $user->status === AccountStatus::PENDING) {
+                $user->status = AccountStatus::SUSPENDED;
+            }
+
+            $user->save();
 
             if ($user->status === AccountStatus::REJECTED) {
                 throw ValidationException::withMessages([
@@ -95,6 +105,12 @@ class AuthService
      */
     public function registerClient(array $data): array
     {
+        if (User::where('phone', $data['phone'])->exists()) {
+            throw ValidationException::withMessages([
+                'phone' => ['Ce numéro de téléphone est déjà utilisé.'],
+            ]);
+        }
+
         $user = User::create([
             'role' => UserRole::CLIENT,
             'phone' => $data['phone'],
@@ -102,15 +118,14 @@ class AuthService
             'email' => $data['email'] ?? null,
             'password_hash' => isset($data['password']) ? Hash::make($data['password']) : null,
             'fcm_token' => $data['fcm_token'] ?? null,
-            'status' => AccountStatus::ACTIVE,
-            'phone_verified_at' => now(),
+            'status' => AccountStatus::PENDING,
+            'phone_verified_at' => null,
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $this->sendOtp($user->phone);
 
         return [
             'user' => $user,
-            'token' => $token,
         ];
     }
 
@@ -119,6 +134,12 @@ class AuthService
      */
     public function registerVendeur(array $data): array
     {
+        if (User::where('phone', $data['phone'])->exists()) {
+            throw ValidationException::withMessages([
+                'phone' => ['Ce numéro de téléphone est déjà utilisé.'],
+            ]);
+        }
+
         $user = User::create([
             'role' => UserRole::VENDEUR,
             'phone' => $data['phone'],
@@ -126,15 +147,14 @@ class AuthService
             'email' => $data['email'] ?? null,
             'password_hash' => isset($data['password']) ? Hash::make($data['password']) : null,
             'fcm_token' => $data['fcm_token'] ?? null,
-            'status' => AccountStatus::PENDING, // Vendeurs are pending until admin approval
-            'phone_verified_at' => now(),
+            'status' => AccountStatus::PENDING,
+            'phone_verified_at' => null,
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $this->sendOtp($user->phone);
 
         return [
             'user' => $user,
-            'token' => $token,
         ];
     }
 
@@ -145,15 +165,32 @@ class AuthService
     {
         $user = User::where('phone', $data['phone'])->first();
 
-        if (!$user || !Hash::check($data['password'], $user->password_hash)) {
+
+        if($user == null){
+            throw ValidationException::withMessages([
+                'phone' => ['L\'utilisateur n\'existe pas.'],
+            ]);
+        }
+
+        if (!Hash::check($data['password'], $user->password_hash)) {
             throw ValidationException::withMessages([
                 'phone' => ['Les identifiants fournis sont incorrects.'],
             ]);
         }
 
-        if ($user->status === AccountStatus::SUSPENDED) {
+
+        if ($user->status === AccountStatus::PENDING) {
             throw ValidationException::withMessages([
-                'phone' => ['Votre compte a été suspendu.'],
+                'phone' => ['Veuillez d\'abord valider votre numéro de téléphone.'],
+            ]);
+        }
+
+        if ($user->status === AccountStatus::SUSPENDED) {
+            $msg = $user->role === UserRole::VENDEUR
+                ? "Votre compte est en attente de validation par l'administration."
+                : "Votre compte a été suspendu.";
+            throw ValidationException::withMessages([
+                'phone' => [$msg],
             ]);
         }
 
