@@ -1,4 +1,4 @@
-APP_NAME=Laravel
+APP_NAME="COCHONS DAFRIK"
 APP_ENV=local
 APP_KEY=base64:r33YdYtuSplQIyLiTap3vqLtNverMeS5x7Zz7ilUFOY=
 APP_DEBUG=true
@@ -8,10 +8,6 @@ APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 APP_FAKER_LOCALE=en_US
 
-APP_MAINTENANCE_DRIVER=file
-# APP_MAINTENANCE_STORE=database
-
-# PHP_CLI_SERVER_WORKERS=4
 
 CLOUDINARY_URL=cloudinary://125627124948882:5O2VmJJA4C4VR-AQx594PS9VWuk@dqbbfyiee
 CLOUDINARY_UPLOAD_PRESET=your_upload_preset
@@ -22,6 +18,11 @@ IKODDI_ORGANIZATION_ID=votre_organization_id
 #IKODDI_BASE_URL=https://api.ikoddi.com/api/v1
 # Pour les tests, utilisez plutôt :
 IKODDI_BASE_URL=https://api.staging.ikoddi.com/api/v1
+
+APP_MAINTENANCE_DRIVER=file
+# APP_MAINTENANCE_STORE=database
+
+# PHP_CLI_SERVER_WORKERS=4
 
 BCRYPT_ROUNDS=12
 

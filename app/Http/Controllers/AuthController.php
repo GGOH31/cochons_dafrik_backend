@@ -23,7 +23,7 @@ class AuthController extends Controller
     public function sendOtp(Request $request)
     {
         $request->validate([
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:10'],
         ]);
 
         try {
@@ -43,7 +43,7 @@ class AuthController extends Controller
     public function verifyOtp(Request $request)
     {
         $request->validate([
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:10'],
             'code' => ['required', 'string', 'size:6'],
         ]);
 

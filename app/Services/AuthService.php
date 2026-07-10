@@ -27,11 +27,10 @@ class AuthService
         ]);
 
         $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
-        $recipient = $cleanPhone;
-        
-        if (str_starts_with($recipient, '225')) {
-            $recipient = substr($recipient, 3);
+        if (!str_starts_with($cleanPhone, '225')) {
+            $cleanPhone = '225' . $cleanPhone;
         }
+        $recipient = $cleanPhone;
 
         // Send OTP via SMS using IkoddiService
         $message = "Votre code de validation Cochons d'Afrik est : {$code}. Valable 5 minutes.";
