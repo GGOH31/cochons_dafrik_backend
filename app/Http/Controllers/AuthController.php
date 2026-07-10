@@ -130,4 +130,43 @@ class AuthController extends Controller
     {
         return $this->sendResponse(new UserResource($request->user()), 'Utilisateur connecté récupéré.');
     }
+
+    /**
+     * Request a reset password OTP.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'phone' => ['required', 'string', 'max:20'],
+        ]);
+
+        try {
+            $code = $this->authService->sendForgotPasswordOtp($request->phone);
+            return $this->sendResponse([
+                'phone' => $request->phone,
+                'debug_code' => $code, // Pour faciliter le test en sandbox
+            ], 'Code OTP de réinitialisation envoyé avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Reset password using OTP.
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'phone' => ['required', 'string', 'max:20'],
+            'code' => ['required', 'string', 'size:6'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        try {
+            $this->authService->resetPasswordWithOtp($request->phone, $request->code, $request->password);
+            return $this->sendResponse(null, 'Votre mot de passe a été réinitialisé avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
 }

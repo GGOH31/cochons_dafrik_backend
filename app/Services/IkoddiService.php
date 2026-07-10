@@ -30,7 +30,7 @@ class IkoddiService
     public function sendSms(
         array $sentTo,
         string $message,
-        string $from = 'Ikoddi',
+        string $from = 'IKODDI',
         string $countryStringCode = 'CI',
         string $countryNumberCode = '225',
         ?string $campaignName = null
@@ -43,7 +43,7 @@ class IkoddiService
                 'sentTo' => $sentTo,
                 'message' => $message,
                 'from' => $from,
-                'smsBroadCast' => $campaignName ?? 'default',
+                'smsBroadCast' => $campaignName ?? 'com 1',
                 'countryStringCode' => $countryStringCode,
                 'countryNumberCode' => $countryNumberCode,
                 'messageType' => 'sms',

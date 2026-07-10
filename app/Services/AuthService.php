@@ -34,7 +34,7 @@ class AuthService
 
         // Send OTP via SMS using IkoddiService
         $message = "Votre code de validation Cochons d'Afrik est : {$code}. Valable 5 minutes.";
-        app(IkoddiService::class)->sendSms([$recipient], $message, 'C.DAFRIK', 'CI', '225');
+        app(IkoddiService::class)->sendSms([$recipient], $message, 'Ikoddi', 'CI', '225');
 
         return $code;
     }
@@ -209,5 +209,74 @@ class AuthService
             'user' => $user,
             'token' => $token,
         ];
+    }
+
+    /**
+     * Send a reset password OTP code to the user's phone if they exist.
+     */
+    public function sendForgotPasswordOtp(string $phone): string
+    {
+        $user = User::where('phone', $phone)->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'phone' => ["Aucun utilisateur n'est associé à ce numéro de téléphone."],
+            ]);
+        }
+
+        $code = (string) rand(100000, 999999);
+        $expiresAt = now()->addMinutes(5);
+
+        // Save hashed OTP code
+        OtpCode::create([
+            'phone' => $phone,
+            'code_hash' => Hash::make($code),
+            'expires_at' => $expiresAt,
+        ]);
+
+        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+        if (!str_starts_with($cleanPhone, '225')) {
+            $cleanPhone = '225' . $cleanPhone;
+        }
+        $recipient = $cleanPhone;
+
+        // Send OTP via SMS using IkoddiService
+        $message = "Votre code de réinitialisation de mot de passe Cochons d'Afrik est : {$code}. Valable 5 minutes.";
+        app(IkoddiService::class)->sendSms([$recipient], $message, 'Ikoddi', 'CI', '225');
+
+        return $code;
+    }
+
+    /**
+     * Reset the user's password using the OTP code.
+     */
+    public function resetPasswordWithOtp(string $phone, string $code, string $password): void
+    {
+        $user = User::where('phone', $phone)->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'phone' => ["L'utilisateur n'existe pas."],
+            ]);
+        }
+
+        $otp = OtpCode::where('phone', $phone)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->orderBy('expires_at', 'desc')
+            ->first();
+
+        if (!$otp || !Hash::check($code, $otp->code_hash)) {
+            throw ValidationException::withMessages([
+                'code' => ['Le code de réinitialisation OTP est incorrect ou a expiré.'],
+            ]);
+        }
+
+        // Mark OTP as used
+        $otp->update(['used_at' => now()]);
+
+        // Update user's password
+        $user->password_hash = Hash::make($password);
+        $user->save();
     }
 }
