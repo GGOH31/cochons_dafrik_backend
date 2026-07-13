@@ -70,20 +70,20 @@ class AuthController extends Controller
     public function register(StoreUserRequest $request)
     {
         $data = $request->validated();
-
+   
         if ($data['role'] === UserRole::VENDEUR->value) {
+            
             $result = $this->authService->registerVendeur($data);
             
             if (!empty($data['shop'])) {
                 app(\App\Services\VendeurService::class)->createShop($result['user'], $data['shop']);
             }
             
-        } else {
+        } else {              
             $result = $this->authService->registerClient($data);
         }
 
         $message = 'Inscription réussie , un code de confirmation de 6 chiffres vous sera envoyé par SMS.';
-
 
         return $this->sendResponse([
             'user' => new UserResource($result['user']),

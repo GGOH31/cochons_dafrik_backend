@@ -18,7 +18,7 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'role' => ['required', new Enum(UserRole::class)],
-            'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
+            'phone' => ['required', 'string', 'max:10', 'unique:users,phone'],
             'full_name' => ['required', 'string', 'max:120'],
             'email' => ['nullable', 'email', 'max:160', 'unique:users,email'],
             'password' => ['nullable', 'string', 'min:6'],
@@ -31,7 +31,7 @@ class StoreUserRequest extends FormRequest
             'shop.description' => ['nullable', 'string'],
             'shop.commune' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:80'],
             'shop.address' => ['nullable', 'string'],
-            'shop.logo_file' => ['nullable', 'file', 'image', 'max:5120'],
+            'shop.logo_file' => ['nullable', 'file', 'image', 'max:10240'],
             'shop.supporting_docs_file' => ['required_if:role,' . UserRole::VENDEUR->value, 'file', 'max:10240'],
         ];
     }
