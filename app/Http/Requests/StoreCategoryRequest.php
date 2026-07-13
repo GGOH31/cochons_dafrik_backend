@@ -16,6 +16,7 @@ class StoreCategoryRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:80', 'unique:categories,name'],
             'is_b2b' => ['nullable', 'boolean'],
+            'emojis' => ['nullable', 'string'],
         ];
     }
 }

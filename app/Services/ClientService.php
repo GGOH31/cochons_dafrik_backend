@@ -76,7 +76,9 @@ class ClientService
     {
         Shop::where('id', $shopId)->where('status', AccountStatus::ACTIVE)->firstOrFail();
 
-        $query = Product::where('shop_id', $shopId)->where('is_active', true);
+        $query = Product::where('shop_id', $shopId)
+            ->where('is_active', true)
+            ->with(['shop', 'category', 'accompaniments']);
 
         if (!empty($filters['name'])) {
             $query->where('name', 'ILIKE', '%' . $filters['name'] . '%');

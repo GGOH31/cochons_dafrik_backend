@@ -7,6 +7,8 @@ use App\Models\Shop;
 use App\Models\Wallet;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Accompaniment;
+use App\Models\Promotion;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Escrow;
@@ -148,6 +150,7 @@ class VendeurService
             $data['photo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
             unset($data['photo_file']);
         }
+
         return Product::create($data);
     }
 
@@ -156,8 +159,13 @@ class VendeurService
      */
     public function updateProduct(string $productId, array $data, string $shopId): Product
     {
+        if (isset($data['accompaniments'])) {
+            unset($data['accompaniments']);
+        }
+
         $product = Product::where('id', $productId)->where('shop_id', $shopId)->firstOrFail();
         $product->update($data);
+
         return $product;
     }
 
@@ -344,5 +352,89 @@ class VendeurService
 
             return $withdrawal;
         });
+    }
+
+    /**
+     * Get all accompaniments for products of a specific shop.
+     */
+    public function getAccompaniments(string $shopId): \Illuminate\Database\Eloquent\Collection
+    {
+        $productIds = Product::where('shop_id', $shopId)->pluck('id');
+        return Accompaniment::whereIn('product_id', $productIds)->with('product')->get();
+    }
+
+    /**
+     * Create an accompaniment.
+     */
+    public function createAccompaniment(array $data): Accompaniment
+    {
+        if (!empty($data['photo_file']) && $data['photo_file'] instanceof \Illuminate\Http\UploadedFile) {
+            $uploaded = CloudinaryService::uploadImage($data['photo_file'], 'accompaniments');
+            $data['photo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
+            unset($data['photo_file']);
+        }
+
+        return Accompaniment::create($data);
+    }
+
+    /**
+     * Update an accompaniment.
+     */
+    public function updateAccompaniment(int $id, array $data): Accompaniment
+    {
+        $accompaniment = Accompaniment::findOrFail($id);
+
+        if (!empty($data['photo_file']) && $data['photo_file'] instanceof \Illuminate\Http\UploadedFile) {
+            $uploaded = CloudinaryService::uploadImage($data['photo_file'], 'accompaniments');
+            $data['photo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
+            unset($data['photo_file']);
+        }
+
+        $accompaniment->update($data);
+        return $accompaniment;
+    }
+
+    /**
+     * Delete an accompaniment.
+     */
+    public function deleteAccompaniment(int $id): bool
+    {
+        $accompaniment = Accompaniment::findOrFail($id);
+        return $accompaniment->delete();
+    }
+
+    /**
+     * Get promotions for a specific shop.
+     */
+    public function getPromotions(string $shopId): \Illuminate\Database\Eloquent\Collection
+    {
+        return Promotion::where('shop_id', $shopId)->with('product')->get();
+    }
+
+    /**
+     * Create a promotion.
+     */
+    public function createPromotion(array $data): Promotion
+    {
+        return Promotion::create($data);
+    }
+
+    /**
+     * Update a promotion.
+     */
+    public function updatePromotion(string $id, array $data): Promotion
+    {
+        $promotion = Promotion::findOrFail($id);
+        $promotion->update($data);
+        return $promotion;
+    }
+
+    /**
+     * Delete a promotion.
+     */
+    public function deletePromotion(string $id): bool
+    {
+        $promotion = Promotion::findOrFail($id);
+        return $promotion->delete();
     }
 }

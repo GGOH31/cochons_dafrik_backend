@@ -205,6 +205,10 @@ class AuthService
             $user->update(['fcm_token' => $data['fcm_token']]);
         }
 
+        if ($user->role === UserRole::VENDEUR) {
+            $user->load('shop');
+        }
+
         return [
             'user' => $user,
             'token' => $token,

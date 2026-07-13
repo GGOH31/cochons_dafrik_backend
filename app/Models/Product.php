@@ -21,6 +21,8 @@ class Product extends Model
         'prep_minutes',
         'stock_qty',
         'is_active',
+        'rating_avg',
+        'rating_count',
     ];
 
     protected function casts(): array
@@ -30,6 +32,8 @@ class Product extends Model
             'prep_minutes' => 'integer',
             'stock_qty' => 'integer',
             'is_active' => 'boolean',
+            'rating_avg' => 'float',
+            'rating_count' => 'integer',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
@@ -53,5 +57,10 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function accompaniments()
+    {
+        return $this->hasMany(Accompaniment::class);
     }
 }

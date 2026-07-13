@@ -24,6 +24,7 @@ class UpdateProductRequest extends FormRequest
             'prep_minutes' => ['nullable', 'integer', 'min:1'],
             'stock_qty' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'accompaniments' => ['nullable', 'string'],
         ];
     }
 }

@@ -21,11 +21,21 @@ class ProductResource extends JsonResource
             'prep_minutes' => $this->prep_minutes ? (int) $this->prep_minutes : null,
             'stock_qty' => $this->stock_qty !== null ? (int) $this->stock_qty : null,
             'is_active' => (bool) $this->is_active,
+            'rating_avg' => (float) ($this->rating_avg ?? 0.0),
+            'rating_count' => (int) ($this->rating_count ?? 0),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'shop' => new ShopResource($this->whenLoaded('shop')),
             'category' => new CategoryResource($this->whenLoaded('category')),
             'promotions' => PromotionResource::collection($this->whenLoaded('promotions')),
+            'accompaniments' => $this->accompaniments->map(function ($acc) {
+                return [
+                    'id' => $acc->id,
+                    'name' => $acc->name,
+                    'prix_unit' => (int) $acc->prix_unit,
+                    'photo_url' => $acc->photo_url,
+                ];
+            }),
         ];
     }
 }

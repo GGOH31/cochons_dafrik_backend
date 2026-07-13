@@ -13,6 +13,7 @@ use App\Http\Resources\CategoryResource;
 use App\Http\Resources\ProductResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\WalletResource;
+use App\Http\Resources\PromotionResource;
 use App\Services\VendeurService;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentProvider;
@@ -93,6 +94,19 @@ class VendeurController extends Controller
     }
 
     /**
+     * Get all categories.
+     */
+    public function getCategories(Request $request)
+    {
+        try {
+            $categories = \App\Models\Category::withCount('products')->get();
+            return $this->sendResponse(CategoryResource::collection($categories), 'Catégories récupérées.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
      * Create a category.
      */
     public function createCategory(StoreCategoryRequest $request)
@@ -129,6 +143,23 @@ class VendeurController extends Controller
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
+    }
+
+    /**
+     * Get products of the authenticated vendor's shop.
+     */
+    public function getProducts(Request $request)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $products = \App\Models\Product::where('shop_id', $shop->id)
+            ->with(['category', 'shop', 'promotions', 'accompaniments'])
+            ->get();
+
+        return $this->sendResponse(\App\Http\Resources\ProductResource::collection($products), 'Produits récupérés.');
     }
 
     /**
@@ -191,6 +222,232 @@ class VendeurController extends Controller
         try {
             $this->vendeurService->deleteProduct($id, $shop->id);
             return $this->sendResponse(null, 'Produit supprimé.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Get accompaniments of the authenticated vendor's shop.
+     */
+    public function getAccompaniments(Request $request)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $accompaniments = $this->vendeurService->getAccompaniments($shop->id);
+        return $this->sendResponse($accompaniments, 'Accompagnements récupérés.');
+    }
+
+    /**
+     * Create an accompaniment.
+     */
+    public function createAccompaniment(Request $request)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $validated = $request->validate([
+            'product_id' => ['required', 'uuid', 'exists:products,id'],
+            'name' => ['required', 'string', 'max:120'],
+            'prix_unit' => ['required', 'integer', 'min:0'],
+            'photo_file' => ['nullable', 'file', 'image', 'max:5120'],
+        ]);
+
+        $product = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
+        if (!$product) {
+            return $this->sendError('Produit non autorisé.', [], 403);
+        }
+
+        try {
+            $accompaniment = $this->vendeurService->createAccompaniment($validated);
+            return $this->sendResponse($accompaniment, 'Accompagnement créé.', 201);
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Update an accompaniment.
+     */
+    public function updateAccompaniment(Request $request, $id)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $validated = $request->validate([
+            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'name' => ['nullable', 'string', 'max:120'],
+            'prix_unit' => ['nullable', 'integer', 'min:0'],
+            'photo_url' => ['nullable', 'file', 'image', 'max:5120'],
+        ]);
+
+        if (isset($validated['photo_url'])) {
+            $validated['photo_file'] = $validated['photo_url'];
+            unset($validated['photo_url']);
+        }
+
+        $accompaniment = \App\Models\Accompaniment::findOrFail($id);
+        $product = \App\Models\Product::where('id', $accompaniment->product_id)->where('shop_id', $shop->id)->first();
+        if (!$product) {
+            return $this->sendError('Accompagnement non autorisé.', [], 403);
+        }
+
+        if (!empty($validated['product_id'])) {
+            $newProduct = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
+            if (!$newProduct) {
+                return $this->sendError('Nouveau produit non autorisé.', [], 403);
+            }
+        }
+
+        try {
+            $accompaniment = $this->vendeurService->updateAccompaniment($id, $validated);
+            return $this->sendResponse($accompaniment, 'Accompagnement mis à jour.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Delete an accompaniment.
+     */
+    public function deleteAccompaniment(Request $request, $id)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $accompaniment = \App\Models\Accompaniment::findOrFail($id);
+        $product = \App\Models\Product::where('id', $accompaniment->product_id)->where('shop_id', $shop->id)->first();
+        if (!$product) {
+            return $this->sendError('Accompagnement non autorisé.', [], 403);
+        }
+
+        try {
+            $this->vendeurService->deleteAccompaniment($id);
+            return $this->sendResponse(null, 'Accompagnement supprimé.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Get promotions of the authenticated vendor's shop.
+     */
+    public function getPromotions(Request $request)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $promotions = $this->vendeurService->getPromotions($shop->id);
+        return $this->sendResponse(PromotionResource::collection($promotions), 'Promotions récupérées.');
+    }
+
+    /**
+     * Create a promotion.
+     */
+    public function createPromotion(Request $request)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $validated = $request->validate([
+            'product_id' => ['required', 'uuid', 'exists:products,id'],
+            'title' => ['required', 'string', 'max:140'],
+            'promo_type' => ['required', 'string', 'in:percentage,fixed_price'],
+            'value' => ['required', 'integer', 'min:1'],
+            'starts_at' => ['required', 'date'],
+            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $validated['shop_id'] = $shop->id;
+        if (!isset($validated['is_active'])) {
+            $validated['is_active'] = true;
+        }
+
+        $product = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
+        if (!$product) {
+            return $this->sendError('Produit non autorisé.', [], 403);
+        }
+
+        try {
+            $promotion = $this->vendeurService->createPromotion($validated);
+            return $this->sendResponse(new PromotionResource($promotion), 'Promotion créée.', 201);
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Update a promotion.
+     */
+    public function updatePromotion(Request $request, $id)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $validated = $request->validate([
+            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'title' => ['nullable', 'string', 'max:140'],
+            'promo_type' => ['nullable', 'string', 'in:percentage,fixed_price'],
+            'value' => ['nullable', 'integer', 'min:1'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after:starts_at'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $promotion = \App\Models\Promotion::findOrFail($id);
+        if ($promotion->shop_id !== $shop->id) {
+            return $this->sendError('Promotion non autorisée.', [], 403);
+        }
+
+        if (!empty($validated['product_id'])) {
+            $product = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
+            if (!$product) {
+                return $this->sendError('Produit non autorisé.', [], 403);
+            }
+        }
+
+        try {
+            $promotion = $this->vendeurService->updatePromotion($id, $validated);
+            return $this->sendResponse(new PromotionResource($promotion), 'Promotion mise à jour.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Delete a promotion.
+     */
+    public function deletePromotion(Request $request, $id)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        $promotion = \App\Models\Promotion::findOrFail($id);
+        if ($promotion->shop_id !== $shop->id) {
+            return $this->sendError('Promotion non autorisée.', [], 403);
+        }
+
+        try {
+            $this->vendeurService->deletePromotion($id);
+            return $this->sendResponse(null, 'Promotion supprimée.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }

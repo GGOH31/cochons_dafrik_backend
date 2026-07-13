@@ -8,14 +8,28 @@ Route::prefix('v1/vendeur')->middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [VendeurController::class, 'updateProfile']);
     
     // Category management
+    Route::get('/categories', [VendeurController::class, 'getCategories']);
     Route::post('/categories', [VendeurController::class, 'createCategory']);
     Route::put('/categories/{id}', [VendeurController::class, 'updateCategory']);
     Route::delete('/categories/{id}', [VendeurController::class, 'deleteCategory']);
 
     // Product management
+    Route::get('/products', [VendeurController::class, 'getProducts']);
     Route::post('/products', [VendeurController::class, 'createProduct']);
     Route::put('/products/{id}', [VendeurController::class, 'updateProduct']);
     Route::delete('/products/{id}', [VendeurController::class, 'deleteProduct']);
+
+    // Accompaniment management
+    Route::get('/accompaniments', [VendeurController::class, 'getAccompaniments']);
+    Route::post('/accompaniments', [VendeurController::class, 'createAccompaniment']);
+    Route::put('/accompaniments/{id}', [VendeurController::class, 'updateAccompaniment']);
+    Route::delete('/accompaniments/{id}', [VendeurController::class, 'deleteAccompaniment']);
+
+    // Promotion management
+    Route::get('/promotions', [VendeurController::class, 'getPromotions']);
+    Route::post('/promotions', [VendeurController::class, 'createPromotion']);
+    Route::put('/promotions/{id}', [VendeurController::class, 'updatePromotion']);
+    Route::delete('/promotions/{id}', [VendeurController::class, 'deletePromotion']);
 
     // Order management
     Route::get('/orders', [VendeurController::class, 'getMyOrders']);

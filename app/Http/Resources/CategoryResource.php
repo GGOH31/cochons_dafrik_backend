@@ -13,6 +13,8 @@ class CategoryResource extends JsonResource
             'id' => (int) $this->id,
             'name' => $this->name,
             'is_b2b' => (bool) $this->is_b2b,
+            'emojis' => $this->emojis,
+            'products_count' => (int) ($this->products_count ?? 0),
             'products' => ProductResource::collection($this->whenLoaded('products')),
         ];
     }
