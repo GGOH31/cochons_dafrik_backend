@@ -294,4 +294,18 @@ class ClientService
             'items' => $items,
         ]);
     }
+
+    /**
+     * Search products by name across all shops.
+     */
+    public function searchProducts(array $filters): Collection
+    {
+        $query = Product::where('is_active', true)->with(['shop', 'category', 'accompaniments']);
+
+        if (!empty($filters['name'])) {
+            $query->where('name', 'ILIKE', '%' . $filters['name'] . '%');
+        }
+
+        return $query->get();
+    }
 }

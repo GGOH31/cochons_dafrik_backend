@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1/client')->middleware('auth:sanctum')->group(function () {
     Route::post('/addresses', [ClientController::class, 'saveAddress']);
     Route::get('/shops', [ClientController::class, 'searchShops']);
+    Route::get('/products/search', [ClientController::class, 'searchProducts']);
     Route::get('/shops/{shopId}/products', [ClientController::class, 'getShopProducts']);
     
     // Order routes

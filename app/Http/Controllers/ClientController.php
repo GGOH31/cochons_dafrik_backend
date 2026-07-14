@@ -177,4 +177,21 @@ class ClientController extends Controller
 
         return $this->sendResponse(OrderResource::collection($orders)->response()->getData(true), 'Commandes récupérées.');
     }
+
+    /**
+     * Search products by name across all shops.
+     */
+    public function searchProducts(Request $request)
+    {
+        $filters = $request->validate([
+            'name' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $products = $this->clientService->searchProducts($filters);
+            return $this->sendResponse(ProductResource::collection($products), 'Produits recherchés.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
 }
