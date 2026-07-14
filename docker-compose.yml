@@ -1,0 +1,36 @@
+networks:
+    ciplus-network-shared:
+        external: true
+
+services:
+    db_cochons_dafrik:
+        image: postgres:15
+        container_name: db_cochons_dafrik
+        restart: always
+        environment:
+            POSTGRES_USER: cochonDafrik
+            POSTGRES_PASSWORD: QEBAY29jaG9uRGFmcmlrQEBA
+            POSTGRES_DB: cochons_dafrik
+        ports:
+            - "5432:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - ciplus-network-shared
+
+    cochons_dafrik_back:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: cochons_dafrik_back_container
+        restart: always
+        ports:
+            - "8043:8000"
+        env_file:
+            - .env-prod
+        command: sh -c "php artisan storage:link || true && php artisan serve --host=0.0.0.0 --port=8000"
+        networks:
+            - ciplus-network-shared
+
+volumes:
+  postgres_data:
