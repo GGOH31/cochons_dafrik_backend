@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAddressRequest;
 use App\Http\Resources\AddressResource;
+use App\Http\Resources\UserResource;
 use App\Http\Resources\ShopResource;
 use App\Http\Resources\ProductResource;
 use App\Http\Resources\OrderResource;
@@ -32,6 +33,64 @@ class ClientController extends Controller
         try {
             $address = $this->clientService->saveAddress($request->user(), $request->validated());
             return $this->sendResponse(new AddressResource($address), 'Adresse de livraison enregistrée.', 201);
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Get client's personal profile information and delivery addresses.
+     */
+    public function getPersonalInfo(Request $request)
+    {
+        try {
+            $user = $request->user()->load('addresses');
+            return $this->sendResponse(new UserResource($user), 'Informations personnelles récupérées avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Get client's delivery addresses.
+     */
+    public function getAddresses(Request $request)
+    {
+        try {
+            $addresses = $request->user()->addresses()->orderBy('created_at', 'desc')->get();
+            return $this->sendResponse(AddressResource::collection($addresses), 'Adresses récupérées avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Update client's delivery address.
+     */
+    public function updateAddress(Request $request, $id)
+    {
+        $address = $request->user()->addresses()->find($id);
+        if (!$address) {
+            return $this->sendError('Adresse non trouvée.', [], 404);
+        }
+
+        $rules = [
+            'label' => ['nullable', 'string', 'max:60'],
+            'commune' => ['nullable', 'string', 'max:80'],
+            'details' => ['required', 'string'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'is_default' => ['nullable', 'boolean'],
+        ];
+
+        $validated = $request->validate($rules);
+
+        try {
+            if (!empty($validated['is_default'])) {
+                $request->user()->addresses()->update(['is_default' => false]);
+            }
+            $address->update($validated);
+            return $this->sendResponse(new AddressResource($address->fresh()), 'Adresse de livraison mise à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }

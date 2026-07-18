@@ -94,6 +94,75 @@ class VendeurController extends Controller
     }
 
     /**
+     * Get vendor's personal profile information.
+     */
+    public function getPersonalInfo(Request $request)
+    {
+        try {
+            $user = $request->user();
+            return $this->sendResponse(new UserResource($user), 'Informations personnelles récupérées avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Get vendor's shop details.
+     */
+    public function getShopInfo(Request $request)
+    {
+        try {
+            $shop = $request->user()->shop;
+            if (!$shop) {
+                return $this->sendError('Aucune boutique trouvée pour ce vendeur.', [], 404);
+            }
+            return $this->sendResponse(new ShopResource($shop), 'Informations de la boutique récupérées avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Update vendor's shop details.
+     */
+    public function updateShopInfo(Request $request)
+    {
+        $shop = $request->user()->shop;
+        if (!$shop) {
+            return $this->sendError('Aucune boutique trouvée pour ce vendeur.', [], 404);
+        }
+
+        $rules = [
+            'description' => ['nullable', 'string'],
+            'address' => ['nullable', 'string'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'is_open' => ['sometimes', 'boolean'],
+            'delivery_fee_fcfa' => ['sometimes', 'integer', 'min:0'],
+            'min_order_fcfa' => ['sometimes', 'integer', 'min:0'],
+            'opening_hours' => ['nullable', 'array'],
+            'delivery_zone' => ['nullable', 'string'],
+        ];
+
+        $validated = $request->validate($rules);
+
+        if ($request->hasFile('logo_url')) {
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_url'), 'shops');
+            $validated['logo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
+        } elseif ($request->hasFile('logo_file')) {
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_file'), 'shops');
+            $validated['logo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
+        }
+
+        try {
+            $shop->update($validated);
+            return $this->sendResponse(new ShopResource($shop->fresh()), 'Boutique mise à jour avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
      * Get all categories.
      */
     public function getCategories(Request $request)

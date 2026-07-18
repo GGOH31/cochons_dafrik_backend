@@ -14,7 +14,7 @@ class StoreAddressRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['required', 'uuid', 'exists:users,id'],
+            'user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'label' => ['nullable', 'string', 'max:60'],
             'commune' => ['nullable', 'string', 'max:80'],
             'details' => ['required', 'string'],

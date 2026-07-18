@@ -4,7 +4,10 @@ use App\Http\Controllers\ClientController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/client')->middleware('auth:sanctum')->group(function () {
+    Route::get('/profile/personal', [ClientController::class, 'getPersonalInfo']);
+    Route::get('/addresses', [ClientController::class, 'getAddresses']);
     Route::post('/addresses', [ClientController::class, 'saveAddress']);
+    Route::put('/addresses/{id}', [ClientController::class, 'updateAddress']);
     Route::get('/shops', [ClientController::class, 'searchShops']);
     Route::get('/products/search', [ClientController::class, 'searchProducts']);
     Route::get('/shops/{shopId}/products', [ClientController::class, 'getShopProducts']);
