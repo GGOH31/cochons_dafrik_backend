@@ -96,7 +96,7 @@ class ClientService
             $query->where('price_fcfa', '<=', (int) $filters['price_max']);
         }
 
-        return $query->get();
+        return $query->with('shop')->get();
     }
 
     /**
@@ -176,7 +176,7 @@ class ClientService
     /**
      * Simulate payment callback, holding escrow funds.
      */
-    public function payOrder(string $orderId, string $provider, string $providerRef): Order
+    public function payOrder(string $orderId, string $provider, string $providerRef, ?string $paymentMethodId = null): Order
     {
         $order = Order::findOrFail($orderId);
 
@@ -184,9 +184,10 @@ class ClientService
             throw new \Exception('Cette commande a déjà été payée ou n\'est pas en attente de paiement.');
         }
 
-        return DB::transaction(function () use ($order, $provider, $providerRef) {
+        return DB::transaction(function () use ($order, $provider, $providerRef, $paymentMethodId) {
             $payment = Payment::create([
                 'order_id' => $order->id,
+                'payment_method_id' => $paymentMethodId,
                 'provider' => $provider,
                 'provider_ref' => $providerRef,
                 'amount_fcfa' => $order->total_fcfa,

@@ -330,20 +330,31 @@ return new class extends Migration
               BEFORE INSERT ON orders
               FOR EACH ROW EXECUTE FUNCTION trg_orders_set_commission();
 
-            -- 8.2 Historiser chaque changement de statut
+            -- 8.2 Historiser chaque changement de statut (AFTER trigger)
             CREATE OR REPLACE FUNCTION trg_orders_history()
             RETURNS TRIGGER LANGUAGE plpgsql AS $$
             BEGIN
               IF TG_OP = \'INSERT\' OR NEW.status IS DISTINCT FROM OLD.status THEN
                 INSERT INTO order_status_history(order_id, status) VALUES (NEW.id, NEW.status);
               END IF;
-              NEW.updated_at := now();
               RETURN NEW;
             END $$;
 
             CREATE TRIGGER orders_history
-              BEFORE INSERT OR UPDATE ON orders
+              AFTER INSERT OR UPDATE ON orders
               FOR EACH ROW EXECUTE FUNCTION trg_orders_history();
+
+            -- 8.2.1 Mettre à jour updated_at (BEFORE trigger)
+            CREATE OR REPLACE FUNCTION trg_orders_update_timestamp()
+            RETURNS TRIGGER LANGUAGE plpgsql AS $$
+            BEGIN
+              NEW.updated_at := now();
+              RETURN NEW;
+            END $$;
+
+            CREATE TRIGGER orders_update_timestamp
+              BEFORE INSERT OR UPDATE ON orders
+              FOR EACH ROW EXECUTE FUNCTION trg_orders_update_timestamp();
 
             -- 8.3 Recalcul de la note moyenne d\'une boutique
             CREATE OR REPLACE FUNCTION trg_reviews_rating()
@@ -464,6 +475,7 @@ return new class extends Migration
             DROP FUNCTION IF EXISTS release_escrow(UUID, UUID);
             DROP FUNCTION IF EXISTS trg_reviews_rating() CASCADE;
             DROP FUNCTION IF EXISTS trg_orders_history() CASCADE;
+            DROP FUNCTION IF EXISTS trg_orders_update_timestamp() CASCADE;
             DROP FUNCTION IF EXISTS trg_orders_set_commission() CASCADE;
             DROP FUNCTION IF EXISTS resolve_commission_pct(UUID, order_type);
 

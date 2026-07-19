@@ -16,6 +16,7 @@ class Payment extends Model
 
     protected $fillable = [
         'order_id',
+        'payment_method_id',
         'provider',
         'provider_ref',
         'amount_fcfa',
@@ -41,6 +42,11 @@ class Payment extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function paymentMethod()
+    {
+        return $this->belongsTo(PaymentMethod::class);
     }
 
     public function escrow()

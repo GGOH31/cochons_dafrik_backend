@@ -9,6 +9,7 @@ Route::prefix('v1/client')->middleware('auth:sanctum')->group(function () {
     Route::post('/addresses', [ClientController::class, 'saveAddress']);
     Route::put('/addresses/{id}', [ClientController::class, 'updateAddress']);
     Route::get('/shops', [ClientController::class, 'searchShops']);
+    Route::get('/payment-methods', [ClientController::class, 'getPaymentMethods']);
     Route::get('/products/search', [ClientController::class, 'searchProducts']);
     Route::get('/shops/{shopId}/products', [ClientController::class, 'getShopProducts']);
     

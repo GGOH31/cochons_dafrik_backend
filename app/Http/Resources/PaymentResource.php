@@ -12,6 +12,7 @@ class PaymentResource extends JsonResource
         return [
             'id' => $this->id,
             'order_id' => $this->order_id,
+            'payment_method_id' => $this->payment_method_id,
             'provider' => $this->provider?->value,
             'provider_ref' => $this->provider_ref,
             'amount_fcfa' => (int) $this->amount_fcfa,
@@ -21,6 +22,7 @@ class PaymentResource extends JsonResource
             'refunded_at' => $this->refunded_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'order' => new OrderResource($this->whenLoaded('order')),
+            'payment_method' => new PaymentMethodResource($this->whenLoaded('paymentMethod')),
             'escrow' => new EscrowResource($this->whenLoaded('escrow')),
         ];
     }

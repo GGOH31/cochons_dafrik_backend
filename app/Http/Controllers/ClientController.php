@@ -9,6 +9,7 @@ use App\Http\Resources\ShopResource;
 use App\Http\Resources\ProductResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\ReviewResource;
+use App\Http\Resources\PaymentMethodResource;
 use App\Services\ClientService;
 use App\Enums\OrderType;
 use App\Enums\DeliveryMode;
@@ -97,6 +98,19 @@ class ClientController extends Controller
     }
 
     /**
+     * Get active payment methods.
+     */
+    public function getPaymentMethods(Request $request)
+    {
+        try {
+            $methods = \App\Models\PaymentMethod::where('is_active', true)->orderBy('name', 'asc')->get();
+            return $this->sendResponse(PaymentMethodResource::collection($methods), 'Moyens de paiement récupérés.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
      * Search shops.
      */
     public function searchShops(Request $request)
@@ -168,12 +182,21 @@ class ClientController extends Controller
     public function payOrder(Request $request, $id)
     {
         $validated = $request->validate([
-            'provider' => ['required', new Enum(PaymentProvider::class)],
+            'payment_method_id' => ['nullable', 'uuid', 'exists:payment_methods,id'],
+            'provider' => ['required_without:payment_method_id', new Enum(PaymentProvider::class)],
             'provider_ref' => ['required', 'string', 'max:120'],
         ]);
 
         try {
-            $order = $this->clientService->payOrder($id, $validated['provider'], $validated['provider_ref']);
+            $paymentMethodId = $validated['payment_method_id'] ?? null;
+            $provider = $validated['provider'] ?? null;
+            
+            if ($paymentMethodId) {
+                $paymentMethod = \App\Models\PaymentMethod::findOrFail($paymentMethodId);
+                $provider = $paymentMethod->code;
+            }
+
+            $order = $this->clientService->payOrder($id, $provider, $validated['provider_ref'], $paymentMethodId);
             return $this->sendResponse(new OrderResource($order), 'Paiement effectué et montant séquestré.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
