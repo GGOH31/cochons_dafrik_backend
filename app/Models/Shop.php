@@ -66,6 +66,11 @@ class Shop extends Model
         return $this->hasMany(Product::class);
     }
 
+    public function categories()
+    {
+        return $this->hasMany(Category::class);
+    }
+
     public function promotions()
     {
         return $this->hasMany(Promotion::class);

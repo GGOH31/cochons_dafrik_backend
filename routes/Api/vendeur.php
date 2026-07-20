@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1/vendeur')->middleware('auth:sanctum')->group(function () {
     Route::post('/shop', [VendeurController::class, 'createShop']);
     Route::put('/profile', [VendeurController::class, 'updateProfile']);
+    Route::get('/dashboard', [VendeurController::class, 'getDashboard']);
     Route::get('/profile/personal', [VendeurController::class, 'getPersonalInfo']);
     Route::get('/profile/shop', [VendeurController::class, 'getShopInfo']);
     Route::post('/profile/shop', [VendeurController::class, 'updateShopInfo']);
@@ -36,6 +37,7 @@ Route::prefix('v1/vendeur')->middleware('auth:sanctum')->group(function () {
 
     // Order management
     Route::get('/orders', [VendeurController::class, 'getMyOrders']);
+    Route::get('/orders/{id}', [VendeurController::class, 'getOrderDetails']);
     Route::post('/orders/{id}/accept', [VendeurController::class, 'acceptOrder']);
     Route::post('/orders/{id}/refuse', [VendeurController::class, 'refuseOrder']);
     Route::put('/orders/{id}/status', [VendeurController::class, 'updateOrderStatus']);

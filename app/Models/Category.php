@@ -12,6 +12,7 @@ class Category extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'shop_id',
         'name',
         'is_b2b',
         'emojis',
@@ -22,6 +23,11 @@ class Category extends Model
         return [
             'is_b2b' => 'boolean',
         ];
+    }
+
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class);
     }
 
     public function products()

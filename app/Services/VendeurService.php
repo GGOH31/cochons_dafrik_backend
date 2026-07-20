@@ -124,9 +124,13 @@ class VendeurService
     /**
      * Update a category.
      */
-    public function updateCategory(int $id, array $data): Category
+    public function updateCategory(int $id, array $data, ?string $shopId = null): Category
     {
-        $category = Category::findOrFail($id);
+        $query = Category::where('id', $id);
+        if ($shopId) {
+            $query->where('shop_id', $shopId);
+        }
+        $category = $query->firstOrFail();
         $category->update($data);
         return $category;
     }
@@ -134,9 +138,13 @@ class VendeurService
     /**
      * Delete a category.
      */
-    public function deleteCategory(int $id): bool
+    public function deleteCategory(int $id, ?string $shopId = null): bool
     {
-        $category = Category::findOrFail($id);
+        $query = Category::where('id', $id);
+        if ($shopId) {
+            $query->where('shop_id', $shopId);
+        }
+        $category = $query->firstOrFail();
         return $category->delete();
     }
 

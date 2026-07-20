@@ -92,7 +92,7 @@ return new class extends Migration
             -- 3. CATALOGUE & PROMOTIONS
             CREATE TABLE categories (
               id    SERIAL PRIMARY KEY,
-              name  VARCHAR(80) NOT NULL UNIQUE,
+              name  VARCHAR(80) NOT NULL,
               is_b2b BOOLEAN NOT NULL DEFAULT false
             );
 

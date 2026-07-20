@@ -15,6 +15,7 @@ Route::prefix('v1/client')->middleware('auth:sanctum')->group(function () {
     
     // Order routes
     Route::get('/orders', [ClientController::class, 'getMyOrders']);
+    Route::get('/orders/{id}', [ClientController::class, 'getOrderDetails']);
     Route::post('/orders', [ClientController::class, 'createOrder']);
     Route::post('/orders/{id}/pay', [ClientController::class, 'payOrder']);
     Route::post('/orders/{id}/confirm', [ClientController::class, 'confirmReception']);

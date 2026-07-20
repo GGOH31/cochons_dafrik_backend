@@ -112,7 +112,7 @@ class VendeurController extends Controller
     public function getShopInfo(Request $request)
     {
         try {
-            $shop = $request->user()->shop;
+            $shop = $this->getAuthShop($request);
             if (!$shop) {
                 return $this->sendError('Aucune boutique trouvée pour ce vendeur.', [], 404);
             }
@@ -127,7 +127,7 @@ class VendeurController extends Controller
      */
     public function updateShopInfo(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Aucune boutique trouvée pour ce vendeur.', [], 404);
         }
@@ -163,12 +163,19 @@ class VendeurController extends Controller
     }
 
     /**
-     * Get all categories.
+     * Get all categories for the authenticated vendor's shop.
      */
     public function getCategories(Request $request)
     {
+        $shop = $this->getAuthShop($request);
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
         try {
-            $categories = \App\Models\Category::withCount('products')->get();
+            $categories = \App\Models\Category::where('shop_id', $shop->id)
+                ->withCount('products')
+                ->get();
             return $this->sendResponse(CategoryResource::collection($categories), 'Catégories récupérées.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -176,12 +183,19 @@ class VendeurController extends Controller
     }
 
     /**
-     * Create a category.
+     * Create a category for the authenticated vendor's shop.
      */
     public function createCategory(StoreCategoryRequest $request)
     {
+        $shop = $this->getAuthShop($request);
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
         try {
-            $category = $this->vendeurService->createCategory($request->validated());
+            $validated = $request->validated();
+            $validated['shop_id'] = $shop->id;
+            $category = $this->vendeurService->createCategory($validated);
             return $this->sendResponse(new CategoryResource($category), 'Catégorie créée.', 201);
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -193,8 +207,13 @@ class VendeurController extends Controller
      */
     public function updateCategory(UpdateCategoryRequest $request, $id)
     {
+        $shop = $this->getAuthShop($request);
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
         try {
-            $category = $this->vendeurService->updateCategory($id, $request->validated());
+            $category = $this->vendeurService->updateCategory($id, $request->validated(), $shop->id);
             return $this->sendResponse(new CategoryResource($category), 'Catégorie mise à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -204,10 +223,15 @@ class VendeurController extends Controller
     /**
      * Delete a category.
      */
-    public function deleteCategory($id)
+    public function deleteCategory(Request $request, $id)
     {
+        $shop = $this->getAuthShop($request);
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
         try {
-            $this->vendeurService->deleteCategory($id);
+            $this->vendeurService->deleteCategory($id, $shop->id);
             return $this->sendResponse(null, 'Catégorie supprimée.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -219,7 +243,7 @@ class VendeurController extends Controller
      */
     public function getProducts(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -236,7 +260,7 @@ class VendeurController extends Controller
      */
     public function createProduct(StoreProductRequest $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Vous devez d\'abord créer une boutique.', [], 403);
         }
@@ -259,7 +283,7 @@ class VendeurController extends Controller
      */
     public function updateProduct(UpdateProductRequest $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -283,7 +307,7 @@ class VendeurController extends Controller
      */
     public function deleteProduct(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -301,7 +325,7 @@ class VendeurController extends Controller
      */
     public function getAccompaniments(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -315,7 +339,7 @@ class VendeurController extends Controller
      */
     public function createAccompaniment(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -345,7 +369,7 @@ class VendeurController extends Controller
      */
     public function updateAccompaniment(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -388,7 +412,7 @@ class VendeurController extends Controller
      */
     public function deleteAccompaniment(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -412,7 +436,7 @@ class VendeurController extends Controller
      */
     public function getPromotions(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -426,7 +450,7 @@ class VendeurController extends Controller
      */
     public function createPromotion(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -464,7 +488,7 @@ class VendeurController extends Controller
      */
     public function updatePromotion(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -504,7 +528,7 @@ class VendeurController extends Controller
      */
     public function deletePromotion(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -527,7 +551,7 @@ class VendeurController extends Controller
      */
     public function acceptOrder(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -545,7 +569,7 @@ class VendeurController extends Controller
      */
     public function refuseOrder(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -563,7 +587,7 @@ class VendeurController extends Controller
      */
     public function updateOrderStatus(Request $request, $id)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -585,7 +609,7 @@ class VendeurController extends Controller
      */
     public function getWallet(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -602,7 +626,7 @@ class VendeurController extends Controller
      */
     public function requestWithdrawal(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
@@ -626,19 +650,120 @@ class VendeurController extends Controller
      */
     public function getMyOrders(Request $request)
     {
-        $shop = $request->user()->shop;
+        $shop = $this->getAuthShop($request);
         if (!$shop) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
-        $query = \App\Models\Order::where('shop_id', $shop->id)->with('items');
+        $query = \App\Models\Order::where('shop_id', $shop->id)->with(['items.product', 'buyer', 'address']);
 
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        $orders = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page', 15));
+        if ($request->has('per_page')) {
+            $orders = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page'));
+            return $this->sendResponse(OrderResource::collection($orders)->response()->getData(true), 'Commandes récupérées.');
+        }
 
-        return $this->sendResponse(OrderResource::collection($orders)->response()->getData(true), 'Commandes récupérées.');
+        $orders = $query->orderBy('created_at', 'desc')->get();
+
+        return $this->sendResponse(OrderResource::collection($orders), 'Commandes récupérées.');
+    }
+
+    /**
+     * Get details of a specific order for the vendor shop.
+     */
+    public function getOrderDetails(Request $request, $id)
+    {
+        $shop = $this->getAuthShop($request);
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        try {
+            $order = \App\Models\Order::where('id', $id)
+                ->where('shop_id', $shop->id)
+                ->with(['items.product', 'buyer', 'address', 'payments', 'escrow', 'review'])
+                ->firstOrFail();
+
+            return $this->sendResponse(new OrderResource($order), 'Détails de la commande récupérés.');
+        } catch (\Exception $e) {
+            return $this->sendError('Commande introuvable.', [], 404);
+        }
+    }
+
+    /**
+     * Get vendor dashboard statistics and latest orders.
+     */
+    public function getDashboard(Request $request)
+    {
+        $shop = $this->getAuthShop($request);
+        if (!$shop) {
+            return $this->sendError('Boutique introuvable.', [], 403);
+        }
+
+        try {
+            $user = $request->user();
+            $wallet = \App\Models\Wallet::where('shop_id', $shop->id)->first();
+            $balanceFcfa = $wallet ? (int) $wallet->balance_fcfa : 0;
+
+            $escrowFcfa = (int) \App\Models\Escrow::whereHas('order', fn($q) => $q->where('shop_id', $shop->id))
+                ->where('status', \App\Enums\EscrowStatus::HELD)
+                ->sum('amount_fcfa');
+
+            $todayOrdersCount = \App\Models\Order::where('shop_id', $shop->id)
+                ->whereDate('created_at', now()->today())
+                ->count();
+
+            $totalOrdersCount = \App\Models\Order::where('shop_id', $shop->id)->count();
+
+            $override = $shop->commissionOverride;
+            $commissionPct = $override ? (float) $override->commission_pct : 10.0;
+
+            $latestOrder = \App\Models\Order::where('shop_id', $shop->id)
+                ->whereIn('status', [\App\Enums\OrderStatus::PAID->value, \App\Enums\OrderStatus::PENDING_PAYMENT->value])
+                ->with(['items.product', 'buyer', 'address'])
+                ->latest()
+                ->first();
+
+            if (!$latestOrder) {
+                $latestOrder = \App\Models\Order::where('shop_id', $shop->id)
+                    ->with(['items.product', 'buyer', 'address'])
+                    ->latest()
+                    ->first();
+            }
+
+            $dashboardData = [
+                'shop' => [
+                    'id' => $shop->id,
+                    'name' => $shop->name,
+                    'commune' => $shop->commune,
+                    'address' => $shop->address,
+                    'is_open' => (bool) $shop->is_open,
+                    'rating_avg' => (float) ($shop->rating_avg ?? 5.0),
+                    'rating_count' => (int) ($shop->rating_count ?? 0),
+                ],
+                'vendor' => [
+                    'full_name' => $user->full_name,
+                    'phone' => $user->phone,
+                ],
+                'wallet' => [
+                    'balance_fcfa' => $balanceFcfa,
+                    'escrow_fcfa' => $escrowFcfa,
+                ],
+                'stats' => [
+                    'today_orders_count' => $todayOrdersCount,
+                    'total_orders_count' => $totalOrdersCount,
+                    'rating_avg' => (float) ($shop->rating_avg ?? 5.0),
+                    'commission_pct' => $commissionPct,
+                ],
+                'latest_order' => $latestOrder ? new OrderResource($latestOrder) : null,
+            ];
+
+            return $this->sendResponse($dashboardData, 'Tableau de bord récupéré avec succès.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
     }
 }

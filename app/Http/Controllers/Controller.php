@@ -5,6 +5,23 @@ namespace App\Http\Controllers;
 abstract class Controller
 {
     /**
+     * Get the authenticated user's shop.
+     */
+    protected function getAuthShop(?\Illuminate\Http\Request $request = null): ?\App\Models\Shop
+    {
+        $request = $request ?? request();
+        return $request->user()?->shop;
+    }
+
+    /**
+     * Get the authenticated user's shop ID.
+     */
+    protected function getAuthShopId(?\Illuminate\Http\Request $request = null): ?string
+    {
+        return $this->getAuthShop($request)?->id;
+    }
+
+    /**
      * Send generic success JSON response.
      */
     public function sendResponse($result, ?string $message = null, int $code = 200)

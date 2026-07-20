@@ -252,12 +252,38 @@ class ClientController extends Controller
      */
     public function getMyOrders(Request $request)
     {
-        $orders = \App\Models\Order::where('buyer_id', $request->user()->id)
-            ->with(['items', 'shop'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+        $query = \App\Models\Order::where('buyer_id', $request->user()->id)
+            ->with(['items.product', 'shop', 'address']);
 
-        return $this->sendResponse(OrderResource::collection($orders)->response()->getData(true), 'Commandes récupérées.');
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('per_page')) {
+            $orders = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page'));
+            return $this->sendResponse(OrderResource::collection($orders)->response()->getData(true), 'Commandes récupérées.');
+        }
+
+        $orders = $query->orderBy('created_at', 'desc')->get();
+
+        return $this->sendResponse(OrderResource::collection($orders), 'Commandes récupérées.');
+    }
+
+    /**
+     * Get details of a specific order for the client.
+     */
+    public function getOrderDetails(Request $request, $id)
+    {
+        try {
+            $order = \App\Models\Order::where('id', $id)
+                ->where('buyer_id', $request->user()->id)
+                ->with(['items.product', 'shop', 'address', 'payments', 'escrow', 'review'])
+                ->firstOrFail();
+
+            return $this->sendResponse(new OrderResource($order), 'Détails de la commande récupérés.');
+        } catch (\Exception $e) {
+            return $this->sendError('Commande introuvable.', [], 404);
+        }
     }
 
     /**
