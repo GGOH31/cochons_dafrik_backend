@@ -11,12 +11,14 @@ class StoreReviewRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
     public function rules(): array
     {
         return [
-            'order_id' => ['required', 'uuid', 'exists:orders,id', 'unique:reviews,order_id'],
-            'restaurant_id' => ['required', 'uuid', 'exists:restaurants,id'],
-            'author_id' => ['required', 'uuid', 'exists:users,id'],
             'rating' => ['required', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string'],
         ];

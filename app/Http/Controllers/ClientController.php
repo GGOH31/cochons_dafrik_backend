@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAddressRequest;
+use App\Http\Requests\StoreReviewRequest;
 use App\Http\Resources\AddressResource;
 use App\Http\Resources\UserResource;
 use App\Http\Resources\RestaurantResource;
@@ -218,12 +219,9 @@ class ClientController extends Controller
     /**
      * Submit review.
      */
-    public function submitReview(Request $request, $id)
+    public function submitReview(StoreReviewRequest $request, $id)
     {
-        $validated = $request->validate([
-            'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         try {
             $review = $this->clientService->submitReview($id, $request->user(), $validated);

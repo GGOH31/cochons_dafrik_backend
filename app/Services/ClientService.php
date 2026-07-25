@@ -257,8 +257,12 @@ class ClientService
     {
         $order = Order::where('id', $orderId)->where('buyer_id', $buyer->id)->firstOrFail();
 
-        if ($order->status !== OrderStatus::COMPLETED) {
-            throw new \Exception('Vous ne pouvez noter qu\'une commande terminée.');
+        if (!in_array($order->status, [OrderStatus::COMPLETED, OrderStatus::DELIVERED])) {
+            throw new \Exception('Vous ne pouvez noter qu\'une commande livrée ou terminée.');
+        }
+
+        if (Review::where('order_id', $order->id)->exists()) {
+            throw new \Exception('Vous avez déjà noté cette commande.');
         }
 
         return Review::create([
