@@ -14,7 +14,7 @@ class Review extends Model
 
     protected $fillable = [
         'order_id',
-        'shop_id',
+        'restaurant_id',
         'author_id',
         'rating',
         'comment',
@@ -33,9 +33,9 @@ class Review extends Model
         return $this->belongsTo(Order::class);
     }
 
-    public function shop()
+    public function restaurant()
     {
-        return $this->belongsTo(Shop::class);
+        return $this->belongsTo(Restaurant::class, 'restaurant_id');
     }
 
     public function author()

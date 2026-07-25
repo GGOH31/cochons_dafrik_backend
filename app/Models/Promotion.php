@@ -14,8 +14,8 @@ class Promotion extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
-        'shop_id',
-        'product_id',
+        'restaurant_id',
+        'dish_id',
         'title',
         'promo_type',
         'value',
@@ -36,13 +36,13 @@ class Promotion extends Model
         ];
     }
 
-    public function shop()
+    public function restaurant()
     {
-        return $this->belongsTo(Shop::class);
+        return $this->belongsTo(Restaurant::class, 'restaurant_id');
     }
 
-    public function product()
+    public function dish()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Dish::class, 'dish_id');
     }
 }

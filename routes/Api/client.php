@@ -8,10 +8,10 @@ Route::prefix('v1/client')->middleware('auth:sanctum')->group(function () {
     Route::get('/addresses', [ClientController::class, 'getAddresses']);
     Route::post('/addresses', [ClientController::class, 'saveAddress']);
     Route::put('/addresses/{id}', [ClientController::class, 'updateAddress']);
-    Route::get('/shops', [ClientController::class, 'searchShops']);
+    Route::get('/restaurants', [ClientController::class, 'searchRestaurants']);
     Route::get('/payment-methods', [ClientController::class, 'getPaymentMethods']);
-    Route::get('/products/search', [ClientController::class, 'searchProducts']);
-    Route::get('/shops/{shopId}/products', [ClientController::class, 'getShopProducts']);
+    Route::get('/dishes/search', [ClientController::class, 'searchDishes']);
+    Route::get('/restaurants/{shopId}/dishes', [ClientController::class, 'getShopDishes']);
     
     // Order routes
     Route::get('/orders', [ClientController::class, 'getMyOrders']);

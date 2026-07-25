@@ -4,24 +4,18 @@ use App\Http\Controllers\VendeurController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/vendeur')->middleware('auth:sanctum')->group(function () {
-    Route::post('/shop', [VendeurController::class, 'createShop']);
+    Route::post('/restaurant', [VendeurController::class, 'createShop']);
     Route::put('/profile', [VendeurController::class, 'updateProfile']);
     Route::get('/dashboard', [VendeurController::class, 'getDashboard']);
     Route::get('/profile/personal', [VendeurController::class, 'getPersonalInfo']);
-    Route::get('/profile/shop', [VendeurController::class, 'getShopInfo']);
-    Route::post('/profile/shop', [VendeurController::class, 'updateShopInfo']);
+    Route::get('/profile/restaurant', [VendeurController::class, 'getShopInfo']);
+    Route::post('/profile/restaurant', [VendeurController::class, 'updateShopInfo']);
     
-    // Category management
-    Route::get('/categories', [VendeurController::class, 'getCategories']);
-    Route::post('/categories', [VendeurController::class, 'createCategory']);
-    Route::put('/categories/{id}', [VendeurController::class, 'updateCategory']);
-    Route::delete('/categories/{id}', [VendeurController::class, 'deleteCategory']);
-
-    // Product management
-    Route::get('/products', [VendeurController::class, 'getProducts']);
-    Route::post('/products', [VendeurController::class, 'createProduct']);
-    Route::put('/products/{id}', [VendeurController::class, 'updateProduct']);
-    Route::delete('/products/{id}', [VendeurController::class, 'deleteProduct']);
+    // Dish management
+    Route::get('/dishes', [VendeurController::class, 'getDishes']);
+    Route::post('/dishes', [VendeurController::class, 'createProduct']);
+    Route::put('/dishes/{id}', [VendeurController::class, 'updateProduct']);
+    Route::delete('/dishes/{id}', [VendeurController::class, 'deleteProduct']);
 
     // Accompaniment management
     Route::get('/accompaniments', [VendeurController::class, 'getAccompaniments']);

@@ -121,8 +121,6 @@ class AuthService
             'phone_verified_at' => null,
         ]);
 
-        $this->sendOtp($user->phone);
-
         return [
             'user' => $user,
         ];
@@ -149,8 +147,6 @@ class AuthService
             'status' => AccountStatus::PENDING,
             'phone_verified_at' => null,
         ]);
-
-        $this->sendOtp($user->phone);
 
         return [
             'user' => $user,
@@ -206,7 +202,7 @@ class AuthService
         }
 
         if ($user->role === UserRole::VENDEUR) {
-            $user->load('shop');
+            $user->load('restaurant');
         }
 
         return [

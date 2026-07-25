@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ShopResource extends JsonResource
+class RestaurantResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -33,9 +33,9 @@ class ShopResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'owner' => new UserResource($this->whenLoaded('owner')),
-            'products' => ProductResource::collection($this->whenLoaded('products')),
+            'dishes' => DishResource::collection($this->whenLoaded('dishes')),
             'wallet' => new WalletResource($this->whenLoaded('wallet')),
-            'commission_override' => new ShopCommissionOverrideResource($this->whenLoaded('commissionOverride')),
+            'commission_override' => new RestaurantCommissionOverrideResource($this->whenLoaded('commissionOverride')),
         ];
     }
 }

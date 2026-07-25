@@ -21,7 +21,7 @@ class StoreOrderRequest extends FormRequest
             'reference' => ['required', 'string', 'max:20', 'unique:orders,reference'],
             'order_type' => ['required', new Enum(OrderType::class)],
             'buyer_id' => ['required', 'uuid', 'exists:users,id'],
-            'shop_id' => ['required', 'uuid', 'exists:shops,id'],
+            'restaurant_id' => ['required', 'uuid', 'exists:restaurants,id'],
             'status' => ['nullable', new Enum(OrderStatus::class)],
             'delivery_mode' => ['nullable', new Enum(DeliveryMode::class)],
             'address_id' => ['nullable', 'uuid', 'exists:addresses,id'],

@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAddressRequest;
 use App\Http\Resources\AddressResource;
 use App\Http\Resources\UserResource;
-use App\Http\Resources\ShopResource;
-use App\Http\Resources\ProductResource;
+use App\Http\Resources\RestaurantResource;
+use App\Http\Resources\DishResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\ReviewResource;
 use App\Http\Resources\PaymentMethodResource;
@@ -111,9 +111,9 @@ class ClientController extends Controller
     }
 
     /**
-     * Search shops.
+     * Search restaurants.
      */
-    public function searchShops(Request $request)
+    public function searchRestaurants(Request $request)
     {
         $filters = $request->validate([
             'name' => ['nullable', 'string'],
@@ -125,28 +125,27 @@ class ClientController extends Controller
         ]);
 
         try {
-            $shops = $this->clientService->searchShops($filters);
-            return $this->sendResponse(ShopResource::collection($shops), 'Boutiques récupérées avec succès.');
+            $restaurants = $this->clientService->searchRestaurants($filters);
+            return $this->sendResponse(RestaurantResource::collection($restaurants), 'Boutiques récupérées avec succès.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
     }
 
     /**
-     * Get products of a specific shop.
+     * Get dishes of a specific shop.
      */
-    public function getShopProducts(Request $request, $shopId)
+    public function getShopDishes(Request $request, $restaurantId)
     {
         $filters = $request->validate([
             'name' => ['nullable', 'string'],
-            'category_id' => ['nullable', 'integer'],
             'price_min' => ['nullable', 'integer', 'min:0'],
             'price_max' => ['nullable', 'integer', 'min:0'],
         ]);
 
         try {
-            $products = $this->clientService->getShopProducts($shopId, $filters);
-            return $this->sendResponse(ProductResource::collection($products), 'Produits de la boutique récupérés.');
+            $dishes = $this->clientService->getShopDishes($restaurantId, $filters);
+            return $this->sendResponse(DishResource::collection($dishes), 'Produits de la boutique récupérés.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -158,12 +157,12 @@ class ClientController extends Controller
     public function createOrder(Request $request)
     {
         $validated = $request->validate([
-            'shop_id' => ['required', 'uuid', 'exists:shops,id'],
+            'restaurant_id' => ['required', 'uuid', 'exists:restaurants,id'],
             'order_type' => ['required', new Enum(OrderType::class)],
             'delivery_mode' => ['required', new Enum(DeliveryMode::class)],
             'address_id' => ['required_if:delivery_mode,' . DeliveryMode::DELIVERY->value, 'nullable', 'uuid', 'exists:addresses,id'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
+            'items.*.dish_id' => ['required', 'uuid', 'exists:dishes,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.options' => ['nullable', 'array'],
         ]);
@@ -253,7 +252,7 @@ class ClientController extends Controller
     public function getMyOrders(Request $request)
     {
         $query = \App\Models\Order::where('buyer_id', $request->user()->id)
-            ->with(['items.product', 'shop', 'address']);
+            ->with(['items.dish', 'restaurant', 'address']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -277,7 +276,7 @@ class ClientController extends Controller
         try {
             $order = \App\Models\Order::where('id', $id)
                 ->where('buyer_id', $request->user()->id)
-                ->with(['items.product', 'shop', 'address', 'payments', 'escrow', 'review'])
+                ->with(['items.dish', 'restaurant', 'address', 'payments', 'escrow', 'review'])
                 ->firstOrFail();
 
             return $this->sendResponse(new OrderResource($order), 'Détails de la commande récupérés.');
@@ -287,17 +286,17 @@ class ClientController extends Controller
     }
 
     /**
-     * Search products by name across all shops.
+     * Search dishes by name across all restaurants.
      */
-    public function searchProducts(Request $request)
+    public function searchDishes(Request $request)
     {
         $filters = $request->validate([
             'name' => ['nullable', 'string'],
         ]);
 
         try {
-            $products = $this->clientService->searchProducts($filters);
-            return $this->sendResponse(ProductResource::collection($products), 'Produits recherchés.');
+            $dishes = $this->clientService->searchDishes($filters);
+            return $this->sendResponse(DishResource::collection($dishes), 'Produits recherchés.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }

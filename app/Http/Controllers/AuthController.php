@@ -7,6 +7,7 @@ use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use App\Enums\UserRole;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
@@ -70,18 +71,20 @@ class AuthController extends Controller
     public function register(StoreUserRequest $request)
     {
         $data = $request->validated();
-   
-        if ($data['role'] === UserRole::VENDEUR->value) {
-            
-            $result = $this->authService->registerVendeur($data);
-            
-            if (!empty($data['shop'])) {
-                app(\App\Services\VendeurService::class)->createShop($result['user'], $data['shop']);
+        $result = DB::transaction(function () use ($data) {
+            if ($data['role'] === UserRole::VENDEUR->value) {
+                $res = $this->authService->registerVendeur($data);
+                if (!empty($data['restaurant'])) {
+                    app(\App\Services\VendeurService::class)->createShop($res['user'], $data['restaurant']);
+                }
+                return $res;
+            } else {              
+                return $this->authService->registerClient($data);
             }
-            
-        } else {              
-            $result = $this->authService->registerClient($data);
-        }
+        });
+
+        // Send OTP safely only after transaction is committed successfully
+        $this->authService->sendOtp($result['user']->phone);
 
         $message = 'Inscription réussie , un code de confirmation de 6 chiffres vous sera envoyé par SMS.';
 

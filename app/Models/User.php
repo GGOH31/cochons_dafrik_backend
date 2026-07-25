@@ -54,9 +54,9 @@ class User extends Authenticatable
     }
 
     // Relationships
-    public function shop()
+    public function restaurant()
     {
-        return $this->hasOne(Shop::class, 'owner_id');
+        return $this->hasOne(Restaurant::class, 'owner_id');
     }
 
     public function addresses()
@@ -84,9 +84,9 @@ class User extends Authenticatable
         return $this->hasMany(Dispute::class, 'resolved_by');
     }
 
-    public function validatedShops()
+    public function validatedRestaurants()
     {
-        return $this->hasMany(Shop::class, 'validated_by');
+        return $this->hasMany(Restaurant::class, 'validated_by');
     }
 
     public function processedWithdrawals()

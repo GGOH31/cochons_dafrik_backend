@@ -4,8 +4,8 @@ use App\Http\Controllers\AdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/admin')->middleware('auth:sanctum')->group(function () {
-    Route::post('/shops/{id}/validate', [AdminController::class, 'validateShop']);
-    Route::put('/shops/{shopId}/commission', [AdminController::class, 'updateShopCommission']);
+    Route::post('/restaurants/{id}/validate', [AdminController::class, 'validateShop']);
+    Route::put('/restaurants/{shopId}/commission', [AdminController::class, 'updateShopCommission']);
     Route::put('/settings/{key}', [AdminController::class, 'updatePlatformSetting']);
     
     // Stats & Escrow supervision

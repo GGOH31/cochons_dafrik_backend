@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\UpdateShopCommissionOverrideRequest;
-use App\Http\Resources\ShopResource;
-use App\Http\Resources\ShopCommissionOverrideResource;
+use App\Http\Requests\UpdateRestaurantCommissionOverrideRequest;
+use App\Http\Resources\RestaurantResource;
+use App\Http\Resources\RestaurantCommissionOverrideResource;
 use App\Http\Resources\PlatformSettingResource;
 use App\Http\Resources\DisputeResource;
 use App\Services\AdminService;
@@ -31,8 +31,8 @@ class AdminController extends Controller
         ]);
 
         try {
-            $shop = $this->adminService->validateShop($id, $request->user()->id, $request->status);
-            return $this->sendResponse(new ShopResource($shop), 'Le statut de la boutique a été mis à jour.');
+            $restaurant = $this->adminService->validateShop($id, $request->user()->id, $request->status);
+            return $this->sendResponse(new RestaurantResource($restaurant), 'Le statut de la boutique a été mis à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -41,11 +41,11 @@ class AdminController extends Controller
     /**
      * Manage commissions override for a specific shop.
      */
-    public function updateShopCommission(UpdateShopCommissionOverrideRequest $request, $shopId)
+    public function updateShopCommission(UpdateRestaurantCommissionOverrideRequest $request, $restaurantId)
     {
         try {
-            $override = $this->adminService->updateShopCommission($shopId, $request->rate_pct, $request->user()->id);
-            return $this->sendResponse(new ShopCommissionOverrideResource($override), 'Commission spécifique de la boutique mise à jour.');
+            $override = $this->adminService->updateShopCommission($restaurantId, $request->rate_pct, $request->user()->id);
+            return $this->sendResponse(new RestaurantCommissionOverrideResource($override), 'Commission spécifique de la boutique mise à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }

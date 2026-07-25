@@ -54,7 +54,7 @@ return new class extends Migration
               updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
             );
 
-            CREATE TABLE shops (
+            CREATE TABLE restaurants (
               id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               owner_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
               name          VARCHAR(140) NOT NULL,
@@ -90,33 +90,25 @@ return new class extends Migration
             );
 
             -- 3. CATALOGUE & PROMOTIONS
-            CREATE TABLE categories (
-              id    SERIAL PRIMARY KEY,
-              name  VARCHAR(80) NOT NULL,
-              is_b2b BOOLEAN NOT NULL DEFAULT false
-            );
-
-            CREATE TABLE products (
+            CREATE TABLE dishes (
               id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              shop_id      UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-              category_id  INTEGER REFERENCES categories(id),
+              restaurant_id      UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
               name         VARCHAR(160) NOT NULL,
               description  TEXT,
               photo_url    TEXT,
               unit         VARCHAR(30) NOT NULL DEFAULT \'portion\',
               price_fcfa   INTEGER NOT NULL CHECK (price_fcfa > 0),
               prep_minutes INTEGER,
-              stock_qty    INTEGER,
               is_active    BOOLEAN NOT NULL DEFAULT true,
               created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
               updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
             );
-            CREATE INDEX idx_products_shop ON products(shop_id) WHERE is_active;
+            CREATE INDEX idx_dishes_shop ON dishes(restaurant_id) WHERE is_active;
 
             CREATE TABLE promotions (
               id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              shop_id     UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-              product_id  UUID REFERENCES products(id) ON DELETE CASCADE,
+              restaurant_id     UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+              dish_id  UUID REFERENCES dishes(id) ON DELETE CASCADE,
               title       VARCHAR(140) NOT NULL,
               promo_type  promo_type NOT NULL DEFAULT \'percentage\',
               value       INTEGER NOT NULL CHECK (value > 0),
@@ -126,7 +118,7 @@ return new class extends Migration
               created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
               CHECK (ends_at > starts_at)
             );
-            CREATE INDEX idx_promotions_active ON promotions(shop_id, starts_at, ends_at) WHERE is_active;
+            CREATE INDEX idx_promotions_active ON promotions(restaurant_id, starts_at, ends_at) WHERE is_active;
 
             -- 4. COMMANDES
             CREATE TABLE orders (
@@ -134,7 +126,7 @@ return new class extends Migration
               reference      VARCHAR(20) NOT NULL UNIQUE,
               order_type     order_type NOT NULL,
               buyer_id       UUID NOT NULL REFERENCES users(id),
-              shop_id        UUID NOT NULL REFERENCES shops(id),
+              restaurant_id        UUID NOT NULL REFERENCES restaurants(id),
               status         order_status NOT NULL DEFAULT \'pending_payment\',
               delivery_mode  delivery_mode NOT NULL DEFAULT \'delivery\',
               address_id     UUID REFERENCES addresses(id),
@@ -154,14 +146,14 @@ return new class extends Migration
               updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
             );
             CREATE INDEX idx_orders_buyer ON orders(buyer_id, created_at DESC);
-            CREATE INDEX idx_orders_shop  ON orders(shop_id, status, created_at DESC);
+            CREATE INDEX idx_orders_shop  ON orders(restaurant_id, status, created_at DESC);
             CREATE INDEX idx_orders_auto_confirm ON orders(auto_confirm_at) WHERE status = \'delivered\';
 
             CREATE TABLE order_items (
               id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               order_id     UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-              product_id   UUID NOT NULL REFERENCES products(id),
-              product_name VARCHAR(160) NOT NULL,
+              dish_id   UUID NOT NULL REFERENCES dishes(id),
+              dish_name VARCHAR(160) NOT NULL,
               unit_price_fcfa INTEGER NOT NULL,
               quantity     NUMERIC(8,2) NOT NULL CHECK (quantity > 0),
               options      JSONB,
@@ -205,7 +197,7 @@ return new class extends Migration
 
             CREATE TABLE wallets (
               id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              shop_id       UUID NOT NULL UNIQUE REFERENCES shops(id),
+              restaurant_id       UUID NOT NULL UNIQUE REFERENCES restaurants(id),
               balance_fcfa  BIGINT NOT NULL DEFAULT 0 CHECK (balance_fcfa >= 0),
               updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
             );
@@ -250,7 +242,7 @@ return new class extends Migration
             CREATE TABLE reviews (
               id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               order_id   UUID NOT NULL UNIQUE REFERENCES orders(id),
-              shop_id    UUID NOT NULL REFERENCES shops(id),
+              restaurant_id    UUID NOT NULL REFERENCES restaurants(id),
               author_id  UUID NOT NULL REFERENCES users(id),
               rating     SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
               comment    TEXT,
@@ -294,8 +286,8 @@ return new class extends Migration
               (\'auto_confirm_delay_hours\',   \'24\'),
               (\'min_withdrawal_fcfa\',        \'5000\');
 
-            CREATE TABLE shop_commission_overrides (
-              shop_id    UUID PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,
+            CREATE TABLE restaurant_commission_overrides (
+              restaurant_id    UUID PRIMARY KEY REFERENCES restaurants(id) ON DELETE CASCADE,
               rate_pct   NUMERIC(5,2) NOT NULL CHECK (rate_pct >= 0 AND rate_pct <= 100),
               updated_by UUID REFERENCES users(id),
               updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -305,7 +297,7 @@ return new class extends Migration
             CREATE OR REPLACE FUNCTION resolve_commission_pct(p_shop UUID, p_type order_type)
             RETURNS NUMERIC LANGUAGE sql STABLE AS $$
               SELECT COALESCE(
-                (SELECT rate_pct FROM shop_commission_overrides WHERE shop_id = p_shop),
+                (SELECT rate_pct FROM restaurant_commission_overrides WHERE restaurant_id = p_shop),
                 NULLIF((SELECT value::text FROM platform_settings
                         WHERE key = \'commission_rate_pct_\' || p_type::text), \'null\')::numeric,
                 (SELECT value::text::numeric FROM platform_settings
@@ -319,7 +311,7 @@ return new class extends Migration
             RETURNS TRIGGER LANGUAGE plpgsql AS $$
             BEGIN
               IF NEW.commission_pct IS NULL OR NEW.commission_pct = 0 THEN
-                NEW.commission_pct := resolve_commission_pct(NEW.shop_id, NEW.order_type);
+                NEW.commission_pct := resolve_commission_pct(NEW.restaurant_id, NEW.order_type);
               END IF;
               NEW.commission_fcfa := round(NEW.total_fcfa * NEW.commission_pct / 100.0);
               NEW.seller_net_fcfa := NEW.total_fcfa - NEW.commission_fcfa;
@@ -360,10 +352,10 @@ return new class extends Migration
             CREATE OR REPLACE FUNCTION trg_reviews_rating()
             RETURNS TRIGGER LANGUAGE plpgsql AS $$
             BEGIN
-              UPDATE shops s SET
-                rating_avg   = (SELECT round(avg(rating)::numeric, 1) FROM reviews WHERE shop_id = NEW.shop_id),
-                rating_count = (SELECT count(*) FROM reviews WHERE shop_id = NEW.shop_id)
-              WHERE s.id = NEW.shop_id;
+              UPDATE restaurants s SET
+                rating_avg   = (SELECT round(avg(rating)::numeric, 1) FROM reviews WHERE restaurant_id = NEW.restaurant_id),
+                rating_count = (SELECT count(*) FROM reviews WHERE restaurant_id = NEW.restaurant_id)
+              WHERE s.id = NEW.restaurant_id;
               RETURN NEW;
             END $$;
 
@@ -390,9 +382,9 @@ return new class extends Migration
               END IF;
 
               -- Portefeuille du vendeur/grossiste (créé si absent)
-              INSERT INTO wallets (shop_id) VALUES (v_order.shop_id)
-                ON CONFLICT (shop_id) DO NOTHING;
-              SELECT * INTO v_wallet FROM wallets WHERE shop_id = v_order.shop_id FOR UPDATE;
+              INSERT INTO wallets (restaurant_id) VALUES (v_order.restaurant_id)
+                ON CONFLICT (restaurant_id) DO NOTHING;
+              SELECT * INTO v_wallet FROM wallets WHERE restaurant_id = v_order.restaurant_id FOR UPDATE;
 
               -- Crédit vendeur : total − commission
               UPDATE wallets SET balance_fcfa = balance_fcfa + v_order.seller_net_fcfa,
@@ -414,14 +406,6 @@ return new class extends Migration
             END $$;
 
             -- 10. DONNÉES DE DÉPART
-            INSERT INTO categories (name, is_b2b) VALUES
-              (\'Porc braisé\', false),
-              (\'Porc au four\', false),
-              (\'Porc fou / épicé\', false),
-              (\'Menus & accompagnements\', false),
-              (\'Viande fraîche — carcasse\', true),
-              (\'Viande fraîche — découpes\', true);
-
             -- Vues
             CREATE VIEW v_admin_dashboard AS
             SELECT
@@ -437,7 +421,7 @@ return new class extends Migration
                    e.held_at, o.status, o.auto_confirm_at
             FROM escrows e
             JOIN orders o ON o.id = e.order_id
-            JOIN shops  s ON s.id = o.shop_id
+            JOIN restaurants  s ON s.id = o.restaurant_id
             WHERE e.status = \'held\'
             ORDER BY e.held_at;
         ');
@@ -451,7 +435,7 @@ return new class extends Migration
         DB::unprepared('
             DROP VIEW IF EXISTS v_escrow_en_cours;
             DROP VIEW IF EXISTS v_admin_dashboard;
-            DROP TABLE IF EXISTS shop_commission_overrides CASCADE;
+            DROP TABLE IF EXISTS restaurant_commission_overrides CASCADE;
             DROP TABLE IF EXISTS platform_settings CASCADE;
             DROP TABLE IF EXISTS otp_codes CASCADE;
             DROP TABLE IF EXISTS notifications CASCADE;
@@ -466,10 +450,9 @@ return new class extends Migration
             DROP TABLE IF EXISTS order_items CASCADE;
             DROP TABLE IF EXISTS orders CASCADE;
             DROP TABLE IF EXISTS promotions CASCADE;
-            DROP TABLE IF EXISTS products CASCADE;
-            DROP TABLE IF EXISTS categories CASCADE;
+            DROP TABLE IF EXISTS dishes CASCADE;
             DROP TABLE IF EXISTS addresses CASCADE;
-            DROP TABLE IF EXISTS shops CASCADE;
+            DROP TABLE IF EXISTS restaurants CASCADE;
             DROP TABLE IF EXISTS users CASCADE;
 
             DROP FUNCTION IF EXISTS release_escrow(UUID, UUID);

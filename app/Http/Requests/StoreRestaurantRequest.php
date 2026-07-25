@@ -6,7 +6,7 @@ use App\Enums\AccountStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
-class StoreShopRequest extends FormRequest
+class StoreRestaurantRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,7 +16,7 @@ class StoreShopRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'owner_id' => ['required', 'uuid', 'exists:users,id', 'unique:shops,owner_id'],
+            'owner_id' => ['required', 'uuid', 'exists:users,id', 'unique:restaurants,owner_id'],
             'name' => ['required', 'string', 'max:140'],
             'description' => ['nullable', 'string'],
             'logo_file' => ['nullable', 'file', 'image', 'max:5120'],

@@ -12,13 +12,13 @@ class ReviewResource extends JsonResource
         return [
             'id' => $this->id,
             'order_id' => $this->order_id,
-            'shop_id' => $this->shop_id,
+            'restaurant_id' => $this->restaurant_id,
             'author_id' => $this->author_id,
             'rating' => (int) $this->rating,
             'comment' => $this->comment,
             'created_at' => $this->created_at?->toIso8601String(),
             'order' => new OrderResource($this->whenLoaded('order')),
-            'shop' => new ShopResource($this->whenLoaded('shop')),
+            'restaurant' => new RestaurantResource($this->whenLoaded('restaurant')),
             'author' => new UserResource($this->whenLoaded('author')),
         ];
     }

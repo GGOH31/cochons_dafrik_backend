@@ -13,7 +13,7 @@ class Wallet extends Model
     const CREATED_AT = null;
 
     protected $fillable = [
-        'shop_id',
+        'restaurant_id',
         'balance_fcfa',
     ];
 
@@ -25,9 +25,9 @@ class Wallet extends Model
         ];
     }
 
-    public function shop()
+    public function restaurant()
     {
-        return $this->belongsTo(Shop::class);
+        return $this->belongsTo(Restaurant::class, 'restaurant_id');
     }
 
     public function transactions()

@@ -11,10 +11,10 @@ class WalletResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'shop_id' => $this->shop_id,
+            'restaurant_id' => $this->restaurant_id,
             'balance_fcfa' => (int) $this->balance_fcfa,
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'shop' => new ShopResource($this->whenLoaded('shop')),
+            'restaurant' => new RestaurantResource($this->whenLoaded('restaurant')),
             'transactions' => WalletTransactionResource::collection($this->whenLoaded('transactions')),
             'withdrawals' => WithdrawalResource::collection($this->whenLoaded('withdrawals')),
         ];

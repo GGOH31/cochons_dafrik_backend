@@ -5,16 +5,16 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ShopCommissionOverrideResource extends JsonResource
+class RestaurantCommissionOverrideResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
         return [
-            'shop_id' => $this->shop_id,
+            'restaurant_id' => $this->restaurant_id,
             'rate_pct' => $this->rate_pct ? (float) $this->rate_pct : 0.0,
             'updated_by' => $this->updated_by,
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'shop' => new ShopResource($this->whenLoaded('shop')),
+            'restaurant' => new RestaurantResource($this->whenLoaded('restaurant')),
             'updater' => new UserResource($this->whenLoaded('updater')),
         ];
     }

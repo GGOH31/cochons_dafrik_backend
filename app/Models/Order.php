@@ -17,7 +17,7 @@ class Order extends Model
         'reference',
         'order_type',
         'buyer_id',
-        'shop_id',
+        'restaurant_id',
         'status',
         'delivery_mode',
         'address_id',
@@ -61,9 +61,9 @@ class Order extends Model
         return $this->belongsTo(User::class, 'buyer_id');
     }
 
-    public function shop()
+    public function restaurant()
     {
-        return $this->belongsTo(Shop::class);
+        return $this->belongsTo(Restaurant::class, 'restaurant_id');
     }
 
     public function address()

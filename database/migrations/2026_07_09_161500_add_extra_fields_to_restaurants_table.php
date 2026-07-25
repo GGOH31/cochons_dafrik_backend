@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('shops', function (Blueprint $table) {
+        Schema::table('restaurants', function (Blueprint $table) {
             $table->text('supporting_docs_url')->nullable();
             $table->jsonb('opening_hours')->nullable();
             $table->text('delivery_zone')->nullable();
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('shops', function (Blueprint $table) {
+        Schema::table('restaurants', function (Blueprint $table) {
             $table->dropColumn(['supporting_docs_url', 'opening_hours', 'delivery_zone']);
         });
     }

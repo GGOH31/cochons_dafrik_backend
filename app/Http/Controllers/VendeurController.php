@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreShopRequest;
-use App\Http\Requests\StoreCategoryRequest;
-use App\Http\Requests\UpdateCategoryRequest;
-use App\Http\Requests\StoreProductRequest;
-use App\Http\Requests\UpdateProductRequest;
-use App\Http\Resources\ShopResource;
+use App\Http\Requests\StoreRestaurantRequest;
+
+
+use App\Http\Requests\StoreDishRequest;
+use App\Http\Requests\UpdateDishRequest;
+use App\Http\Resources\RestaurantResource;
 use App\Http\Resources\UserResource;
-use App\Http\Resources\CategoryResource;
-use App\Http\Resources\ProductResource;
+
+use App\Http\Resources\DishResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\WalletResource;
 use App\Http\Resources\PromotionResource;
@@ -32,11 +32,11 @@ class VendeurController extends Controller
     /**
      * Create shop & wallet.
      */
-    public function createShop(StoreShopRequest $request)
+    public function createShop(StoreRestaurantRequest $request)
     {
         try {
-            $shop = $this->vendeurService->createShop($request->user(), $request->validated());
-            return $this->sendResponse(new ShopResource($shop), 'Boutique et portefeuille créés avec succès.', 201);
+            $restaurant = $this->vendeurService->createShop($request->user(), $request->validated());
+            return $this->sendResponse(new RestaurantResource($restaurant), 'Boutique et portefeuille créés avec succès.', 201);
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -54,7 +54,7 @@ class VendeurController extends Controller
             'fcm_token' => ['nullable', 'string'],
         ];
 
-        $shopRules = [
+        $restaurantRules = [
             'name' => ['sometimes', 'string', 'max:140'],
             'description' => ['nullable', 'string'],
             'logo_url' => ['nullable'],
@@ -68,9 +68,9 @@ class VendeurController extends Controller
         ];
 
         $validatedUser = $request->validate($userRules);
-        $validatedShop = $request->has('shop') ? $request->validate(['shop' => ['array']])['shop'] : [];
+        $validatedShop = $request->has('restaurant') ? $request->validate(['restaurant' => ['array']])['restaurant'] : [];
         if (!empty($validatedShop)) {
-            $validator = validator($validatedShop, $shopRules);
+            $validator = validator($validatedShop, $restaurantRules);
             if ($validator->fails()) {
                 return $this->sendError('Données de boutique invalides.', $validator->errors()->toArray(), 422);
             }
@@ -78,10 +78,10 @@ class VendeurController extends Controller
         }
 
         if ($request->hasFile('shop.logo_url')) {
-            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('shop.logo_url'), 'shops');
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('shop.logo_url'), 'restaurants');
             $validatedShop['logo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
         } elseif ($request->hasFile('logo_url')) {
-            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_url'), 'shops');
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_url'), 'restaurants');
             $validatedShop['logo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
         }
 
@@ -112,11 +112,11 @@ class VendeurController extends Controller
     public function getShopInfo(Request $request)
     {
         try {
-            $shop = $this->getAuthShop($request);
-            if (!$shop) {
+            $restaurant = $this->getAuthShop($request);
+            if (!$restaurant) {
                 return $this->sendError('Aucune boutique trouvée pour ce vendeur.', [], 404);
             }
-            return $this->sendResponse(new ShopResource($shop), 'Informations de la boutique récupérées avec succès.');
+            return $this->sendResponse(new RestaurantResource($restaurant), 'Informations de la boutique récupérées avec succès.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -127,8 +127,8 @@ class VendeurController extends Controller
      */
     public function updateShopInfo(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Aucune boutique trouvée pour ce vendeur.', [], 404);
         }
 
@@ -147,132 +147,58 @@ class VendeurController extends Controller
         $validated = $request->validate($rules);
 
         if ($request->hasFile('logo_url')) {
-            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_url'), 'shops');
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_url'), 'restaurants');
             $validated['logo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
         } elseif ($request->hasFile('logo_file')) {
-            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_file'), 'shops');
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('logo_file'), 'restaurants');
             $validated['logo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
         }
 
         try {
-            $shop->update($validated);
-            return $this->sendResponse(new ShopResource($shop->fresh()), 'Boutique mise à jour avec succès.');
+            $restaurant->update($validated);
+            return $this->sendResponse(new RestaurantResource($restaurant->fresh()), 'Boutique mise à jour avec succès.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
     }
 
+    
+
     /**
-     * Get all categories for the authenticated vendor's shop.
+     * Get dishes of the authenticated vendor's shop.
      */
-    public function getCategories(Request $request)
+    public function getDishes(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
-        try {
-            $categories = \App\Models\Category::where('shop_id', $shop->id)
-                ->withCount('products')
-                ->get();
-            return $this->sendResponse(CategoryResource::collection($categories), 'Catégories récupérées.');
-        } catch (\Exception $e) {
-            return $this->sendError($e->getMessage(), [], 422);
-        }
-    }
-
-    /**
-     * Create a category for the authenticated vendor's shop.
-     */
-    public function createCategory(StoreCategoryRequest $request)
-    {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
-            return $this->sendError('Boutique introuvable.', [], 403);
-        }
-
-        try {
-            $validated = $request->validated();
-            $validated['shop_id'] = $shop->id;
-            $category = $this->vendeurService->createCategory($validated);
-            return $this->sendResponse(new CategoryResource($category), 'Catégorie créée.', 201);
-        } catch (\Exception $e) {
-            return $this->sendError($e->getMessage(), [], 422);
-        }
-    }
-
-    /**
-     * Update a category.
-     */
-    public function updateCategory(UpdateCategoryRequest $request, $id)
-    {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
-            return $this->sendError('Boutique introuvable.', [], 403);
-        }
-
-        try {
-            $category = $this->vendeurService->updateCategory($id, $request->validated(), $shop->id);
-            return $this->sendResponse(new CategoryResource($category), 'Catégorie mise à jour.');
-        } catch (\Exception $e) {
-            return $this->sendError($e->getMessage(), [], 422);
-        }
-    }
-
-    /**
-     * Delete a category.
-     */
-    public function deleteCategory(Request $request, $id)
-    {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
-            return $this->sendError('Boutique introuvable.', [], 403);
-        }
-
-        try {
-            $this->vendeurService->deleteCategory($id, $shop->id);
-            return $this->sendResponse(null, 'Catégorie supprimée.');
-        } catch (\Exception $e) {
-            return $this->sendError($e->getMessage(), [], 422);
-        }
-    }
-
-    /**
-     * Get products of the authenticated vendor's shop.
-     */
-    public function getProducts(Request $request)
-    {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
-            return $this->sendError('Boutique introuvable.', [], 403);
-        }
-
-        $products = \App\Models\Product::where('shop_id', $shop->id)
-            ->with(['category', 'shop', 'promotions', 'accompaniments'])
+        $dishes = \App\Models\Dish::where('restaurant_id', $restaurant->id)
+            ->with(['restaurant', 'promotions', 'accompaniments'])
             ->get();
 
-        return $this->sendResponse(\App\Http\Resources\ProductResource::collection($products), 'Produits récupérés.');
+        return $this->sendResponse(\App\Http\Resources\DishResource::collection($dishes), 'Produits récupérés.');
     }
 
     /**
      * Create a product for the vendor's shop.
      */
-    public function createProduct(StoreProductRequest $request)
+    public function createProduct(StoreDishRequest $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Vous devez d\'abord créer une boutique.', [], 403);
         }
 
         $validated = $request->validated();
-        if ($validated['shop_id'] !== $shop->id) {
+        if ($validated['restaurant_id'] !== $restaurant->id) {
             return $this->sendError('ID de boutique non correspondant.', [], 403);
         }
 
         try {
-            $product = $this->vendeurService->createProduct($validated);
-            return $this->sendResponse(new ProductResource($product), 'Produit créé avec succès.', 201);
+            $dish = $this->vendeurService->createProduct($validated);
+            return $this->sendResponse(new DishResource($dish), 'Produit créé avec succès.', 201);
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -281,22 +207,22 @@ class VendeurController extends Controller
     /**
      * Update product.
      */
-    public function updateProduct(UpdateProductRequest $request, $id)
+    public function updateProduct(UpdateDishRequest $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $validated = $request->validated();
         if ($request->hasFile('photo_url')) {
-            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('photo_url'), 'products');
+            $uploaded = \App\Services\CloudinaryService::uploadImage($request->file('photo_url'), 'dishes');
             $validated['photo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
         }
 
         try {
-            $product = $this->vendeurService->updateProduct($id, $validated, $shop->id);
-            return $this->sendResponse(new ProductResource($product), 'Produit mis à jour.');
+            $dish = $this->vendeurService->updateProduct($id, $validated, $restaurant->id);
+            return $this->sendResponse(new DishResource($dish), 'Produit mis à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -307,13 +233,13 @@ class VendeurController extends Controller
      */
     public function deleteProduct(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         try {
-            $this->vendeurService->deleteProduct($id, $shop->id);
+            $this->vendeurService->deleteProduct($id, $restaurant->id);
             return $this->sendResponse(null, 'Produit supprimé.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -325,12 +251,12 @@ class VendeurController extends Controller
      */
     public function getAccompaniments(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
-        $accompaniments = $this->vendeurService->getAccompaniments($shop->id);
+        $accompaniments = $this->vendeurService->getAccompaniments($restaurant->id);
         return $this->sendResponse($accompaniments, 'Accompagnements récupérés.');
     }
 
@@ -339,20 +265,20 @@ class VendeurController extends Controller
      */
     public function createAccompaniment(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $validated = $request->validate([
-            'product_id' => ['required', 'uuid', 'exists:products,id'],
+            'dish_id' => ['required', 'uuid', 'exists:dishes,id'],
             'name' => ['required', 'string', 'max:120'],
             'prix_unit' => ['required', 'integer', 'min:0'],
             'photo_file' => ['nullable', 'file', 'image', 'max:5120'],
         ]);
 
-        $product = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
-        if (!$product) {
+        $dish = \App\Models\Dish::where('id', $validated['dish_id'])->where('restaurant_id', $restaurant->id)->first();
+        if (!$dish) {
             return $this->sendError('Produit non autorisé.', [], 403);
         }
 
@@ -369,13 +295,13 @@ class VendeurController extends Controller
      */
     public function updateAccompaniment(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $validated = $request->validate([
-            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'dish_id' => ['nullable', 'uuid', 'exists:dishes,id'],
             'name' => ['nullable', 'string', 'max:120'],
             'prix_unit' => ['nullable', 'integer', 'min:0'],
             'photo_url' => ['nullable', 'file', 'image', 'max:5120'],
@@ -387,13 +313,13 @@ class VendeurController extends Controller
         }
 
         $accompaniment = \App\Models\Accompaniment::findOrFail($id);
-        $product = \App\Models\Product::where('id', $accompaniment->product_id)->where('shop_id', $shop->id)->first();
-        if (!$product) {
+        $dish = \App\Models\Dish::where('id', $accompaniment->dish_id)->where('restaurant_id', $restaurant->id)->first();
+        if (!$dish) {
             return $this->sendError('Accompagnement non autorisé.', [], 403);
         }
 
-        if (!empty($validated['product_id'])) {
-            $newProduct = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
+        if (!empty($validated['dish_id'])) {
+            $newProduct = \App\Models\Dish::where('id', $validated['dish_id'])->where('restaurant_id', $restaurant->id)->first();
             if (!$newProduct) {
                 return $this->sendError('Nouveau produit non autorisé.', [], 403);
             }
@@ -412,14 +338,14 @@ class VendeurController extends Controller
      */
     public function deleteAccompaniment(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $accompaniment = \App\Models\Accompaniment::findOrFail($id);
-        $product = \App\Models\Product::where('id', $accompaniment->product_id)->where('shop_id', $shop->id)->first();
-        if (!$product) {
+        $dish = \App\Models\Dish::where('id', $accompaniment->dish_id)->where('restaurant_id', $restaurant->id)->first();
+        if (!$dish) {
             return $this->sendError('Accompagnement non autorisé.', [], 403);
         }
 
@@ -436,12 +362,12 @@ class VendeurController extends Controller
      */
     public function getPromotions(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
-        $promotions = $this->vendeurService->getPromotions($shop->id);
+        $promotions = $this->vendeurService->getPromotions($restaurant->id);
         return $this->sendResponse(PromotionResource::collection($promotions), 'Promotions récupérées.');
     }
 
@@ -450,13 +376,13 @@ class VendeurController extends Controller
      */
     public function createPromotion(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $validated = $request->validate([
-            'product_id' => ['required', 'uuid', 'exists:products,id'],
+            'dish_id' => ['required', 'uuid', 'exists:dishes,id'],
             'title' => ['required', 'string', 'max:140'],
             'promo_type' => ['required', 'string', 'in:percentage,fixed_price'],
             'value' => ['required', 'integer', 'min:1'],
@@ -465,13 +391,13 @@ class VendeurController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $validated['shop_id'] = $shop->id;
+        $validated['restaurant_id'] = $restaurant->id;
         if (!isset($validated['is_active'])) {
             $validated['is_active'] = true;
         }
 
-        $product = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
-        if (!$product) {
+        $dish = \App\Models\Dish::where('id', $validated['dish_id'])->where('restaurant_id', $restaurant->id)->first();
+        if (!$dish) {
             return $this->sendError('Produit non autorisé.', [], 403);
         }
 
@@ -488,13 +414,13 @@ class VendeurController extends Controller
      */
     public function updatePromotion(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $validated = $request->validate([
-            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'dish_id' => ['nullable', 'uuid', 'exists:dishes,id'],
             'title' => ['nullable', 'string', 'max:140'],
             'promo_type' => ['nullable', 'string', 'in:percentage,fixed_price'],
             'value' => ['nullable', 'integer', 'min:1'],
@@ -504,13 +430,13 @@ class VendeurController extends Controller
         ]);
 
         $promotion = \App\Models\Promotion::findOrFail($id);
-        if ($promotion->shop_id !== $shop->id) {
+        if ($promotion->restaurant_id !== $restaurant->id) {
             return $this->sendError('Promotion non autorisée.', [], 403);
         }
 
-        if (!empty($validated['product_id'])) {
-            $product = \App\Models\Product::where('id', $validated['product_id'])->where('shop_id', $shop->id)->first();
-            if (!$product) {
+        if (!empty($validated['dish_id'])) {
+            $dish = \App\Models\Dish::where('id', $validated['dish_id'])->where('restaurant_id', $restaurant->id)->first();
+            if (!$dish) {
                 return $this->sendError('Produit non autorisé.', [], 403);
             }
         }
@@ -528,13 +454,13 @@ class VendeurController extends Controller
      */
     public function deletePromotion(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         $promotion = \App\Models\Promotion::findOrFail($id);
-        if ($promotion->shop_id !== $shop->id) {
+        if ($promotion->restaurant_id !== $restaurant->id) {
             return $this->sendError('Promotion non autorisée.', [], 403);
         }
 
@@ -551,13 +477,13 @@ class VendeurController extends Controller
      */
     public function acceptOrder(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         try {
-            $order = $this->vendeurService->acceptOrder($id, $shop->id);
+            $order = $this->vendeurService->acceptOrder($id, $restaurant->id);
             return $this->sendResponse(new OrderResource($order), 'Commande acceptée.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -569,13 +495,13 @@ class VendeurController extends Controller
      */
     public function refuseOrder(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         try {
-            $order = $this->vendeurService->refuseOrder($id, $shop->id);
+            $order = $this->vendeurService->refuseOrder($id, $restaurant->id);
             return $this->sendResponse(new OrderResource($order), 'Commande refusée et client remboursé.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -587,8 +513,8 @@ class VendeurController extends Controller
      */
     public function updateOrderStatus(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
@@ -597,7 +523,7 @@ class VendeurController extends Controller
         ]);
 
         try {
-            $order = $this->vendeurService->updateOrderStatus($id, $request->status, $shop->id);
+            $order = $this->vendeurService->updateOrderStatus($id, $request->status, $restaurant->id);
             return $this->sendResponse(new OrderResource($order), 'Statut de la commande mis à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -609,12 +535,12 @@ class VendeurController extends Controller
      */
     public function getWallet(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
-        $wallet = \App\Models\Wallet::where('shop_id', $shop->id)
+        $wallet = \App\Models\Wallet::where('restaurant_id', $restaurant->id)
             ->with(['transactions' => fn($q) => $q->orderBy('created_at', 'desc')])
             ->firstOrFail();
 
@@ -626,8 +552,8 @@ class VendeurController extends Controller
      */
     public function requestWithdrawal(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
@@ -638,7 +564,7 @@ class VendeurController extends Controller
         ]);
 
         try {
-            $withdrawal = $this->vendeurService->requestWithdrawal($shop->id, $validated['amount_fcfa'], $validated['provider'], $validated['dest_phone']);
+            $withdrawal = $this->vendeurService->requestWithdrawal($restaurant->id, $validated['amount_fcfa'], $validated['provider'], $validated['dest_phone']);
             return $this->sendResponse($withdrawal, 'Demande de retrait soumise avec succès.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
@@ -650,12 +576,12 @@ class VendeurController extends Controller
      */
     public function getMyOrders(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
-        $query = \App\Models\Order::where('shop_id', $shop->id)->with(['items.product', 'buyer', 'address']);
+        $query = \App\Models\Order::where('restaurant_id', $restaurant->id)->with(['items.dish', 'buyer', 'address']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -676,15 +602,15 @@ class VendeurController extends Controller
      */
     public function getOrderDetails(Request $request, $id)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         try {
             $order = \App\Models\Order::where('id', $id)
-                ->where('shop_id', $shop->id)
-                ->with(['items.product', 'buyer', 'address', 'payments', 'escrow', 'review'])
+                ->where('restaurant_id', $restaurant->id)
+                ->with(['items.dish', 'buyer', 'address', 'payments', 'escrow', 'review'])
                 ->firstOrFail();
 
             return $this->sendResponse(new OrderResource($order), 'Détails de la commande récupérés.');
@@ -698,51 +624,51 @@ class VendeurController extends Controller
      */
     public function getDashboard(Request $request)
     {
-        $shop = $this->getAuthShop($request);
-        if (!$shop) {
+        $restaurant = $this->getAuthShop($request);
+        if (!$restaurant) {
             return $this->sendError('Boutique introuvable.', [], 403);
         }
 
         try {
             $user = $request->user();
-            $wallet = \App\Models\Wallet::where('shop_id', $shop->id)->first();
+            $wallet = \App\Models\Wallet::where('restaurant_id', $restaurant->id)->first();
             $balanceFcfa = $wallet ? (int) $wallet->balance_fcfa : 0;
 
-            $escrowFcfa = (int) \App\Models\Escrow::whereHas('order', fn($q) => $q->where('shop_id', $shop->id))
+            $escrowFcfa = (int) \App\Models\Escrow::whereHas('order', fn($q) => $q->where('restaurant_id', $restaurant->id))
                 ->where('status', \App\Enums\EscrowStatus::HELD)
                 ->sum('amount_fcfa');
 
-            $todayOrdersCount = \App\Models\Order::where('shop_id', $shop->id)
+            $todayOrdersCount = \App\Models\Order::where('restaurant_id', $restaurant->id)
                 ->whereDate('created_at', now()->today())
                 ->count();
 
-            $totalOrdersCount = \App\Models\Order::where('shop_id', $shop->id)->count();
+            $totalOrdersCount = \App\Models\Order::where('restaurant_id', $restaurant->id)->count();
 
-            $override = $shop->commissionOverride;
-            $commissionPct = $override ? (float) $override->commission_pct : 10.0;
+            $override = $restaurant->commissionOverride;
+            $commissionPct = $override ? (float) $override->commission_pct : 3.0;
 
-            $latestOrder = \App\Models\Order::where('shop_id', $shop->id)
+            $latestOrder = \App\Models\Order::where('restaurant_id', $restaurant->id)
                 ->whereIn('status', [\App\Enums\OrderStatus::PAID->value, \App\Enums\OrderStatus::PENDING_PAYMENT->value])
-                ->with(['items.product', 'buyer', 'address'])
+                ->with(['items.dish', 'buyer', 'address'])
                 ->latest()
                 ->first();
 
             if (!$latestOrder) {
-                $latestOrder = \App\Models\Order::where('shop_id', $shop->id)
-                    ->with(['items.product', 'buyer', 'address'])
+                $latestOrder = \App\Models\Order::where('restaurant_id', $restaurant->id)
+                    ->with(['items.dish', 'buyer', 'address'])
                     ->latest()
                     ->first();
             }
 
             $dashboardData = [
-                'shop' => [
-                    'id' => $shop->id,
-                    'name' => $shop->name,
-                    'commune' => $shop->commune,
-                    'address' => $shop->address,
-                    'is_open' => (bool) $shop->is_open,
-                    'rating_avg' => (float) ($shop->rating_avg ?? 5.0),
-                    'rating_count' => (int) ($shop->rating_count ?? 0),
+                'restaurant' => [
+                    'id' => $restaurant->id,
+                    'name' => $restaurant->name,
+                    'commune' => $restaurant->commune,
+                    'address' => $restaurant->address,
+                    'is_open' => (bool) $restaurant->is_open,
+                    'rating_avg' => (float) ($restaurant->rating_avg ?? 5.0),
+                    'rating_count' => (int) ($restaurant->rating_count ?? 0),
                 ],
                 'vendor' => [
                     'full_name' => $user->full_name,
@@ -755,7 +681,7 @@ class VendeurController extends Controller
                 'stats' => [
                     'today_orders_count' => $todayOrdersCount,
                     'total_orders_count' => $totalOrdersCount,
-                    'rating_avg' => (float) ($shop->rating_avg ?? 5.0),
+                    'rating_avg' => (float) ($restaurant->rating_avg ?? 5.0),
                     'commission_pct' => $commissionPct,
                 ],
                 'latest_order' => $latestOrder ? new OrderResource($latestOrder) : null,

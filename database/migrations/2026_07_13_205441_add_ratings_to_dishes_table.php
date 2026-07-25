@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('products', function (Blueprint $table) {
+        Schema::table('dishes', function (Blueprint $table) {
             $table->decimal('rating_avg', 3, 2)->default(0.00);
             $table->integer('rating_count')->default(0);
         });
@@ -22,7 +22,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('products', function (Blueprint $table) {
+        Schema::table('dishes', function (Blueprint $table) {
             $table->dropColumn(['rating_avg', 'rating_count']);
         });
     }

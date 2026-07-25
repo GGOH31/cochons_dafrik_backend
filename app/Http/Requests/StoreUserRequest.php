@@ -26,13 +26,13 @@ class StoreUserRequest extends FormRequest
             'status' => ['nullable', new Enum(AccountStatus::class)],
             
             // Nested shop validation for vendors
-            'shop' => ['required_if:role,' . UserRole::VENDEUR->value, 'array'],
-            'shop.name' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:140'],
-            'shop.description' => ['nullable', 'string'],
-            'shop.commune' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:80'],
-            'shop.address' => ['nullable', 'string'],
-            'shop.logo_file' => ['nullable', 'file', 'image', 'max:10240'],
-            'shop.supporting_docs_file' => ['required_if:role,' . UserRole::VENDEUR->value, 'file', 'max:10240'],
+            'restaurant' => ['required_if:role,' . UserRole::VENDEUR->value, 'array'],
+            'restaurant.name' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:140'],
+            'restaurant.description' => ['nullable', 'string'],
+            'restaurant.commune' => ['required_if:role,' . UserRole::VENDEUR->value, 'string', 'max:80'],
+            'restaurant.address' => ['nullable', 'string'],
+            'restaurant.logo_file' => ['nullable', 'file', 'max:10240'],
+            'restaurant.supporting_docs_file' => ['required_if:role,' . UserRole::VENDEUR->value, 'file', 'max:10240'],
         ];
     }
 }

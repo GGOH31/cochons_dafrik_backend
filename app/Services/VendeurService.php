@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Models\Shop;
+use App\Models\Restaurant;
 use App\Models\Wallet;
-use App\Models\Category;
-use App\Models\Product;
+
+use App\Models\Dish;
 use App\Models\Accompaniment;
 use App\Models\Promotion;
 use App\Models\Order;
@@ -27,11 +27,11 @@ use Illuminate\Support\Facades\Hash;
 class VendeurService
 {
     /**
-     * Create a shop and its associated wallet for the vendor.
+     * Create a restaurant and its associated wallet for the vendor.
      */
-    public function createShop(User $user, array $data): Shop
+    public function createShop(User $user, array $data): Restaurant
     {
-        if ($user->shop) {
+        if ($user->restaurant) {
             throw new \Exception('Cet utilisateur possède déjà une boutique.');
         }
 
@@ -53,7 +53,7 @@ class VendeurService
                 $supportingDocsUrl = $data['supporting_docs_url'];
             }
 
-            $shop = Shop::create([
+            $restaurant = Restaurant::create([
                 'owner_id' => $user->id,
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
@@ -71,22 +71,22 @@ class VendeurService
                 'delivery_zone' => $data['delivery_zone'] ?? null,
             ]);
 
-            // Create wallet for the shop
+            // Create wallet for the restaurant
             Wallet::create([
-                'shop_id' => $shop->id,
+                'restaurant_id' => $restaurant->id,
                 'balance_fcfa' => 0,
             ]);
 
-            return $shop;
+            return $restaurant;
         });
     }
 
     /**
-     * Update personal and shop profiles.
+     * Update personal and restaurant profiles.
      */
-    public function updateProfile(User $user, array $userData, array $shopData = []): User
+    public function updateProfile(User $user, array $userData, array $restaurantData = []): User
     {
-        return DB::transaction(function () use ($user, $userData, $shopData) {
+        return DB::transaction(function () use ($user, $userData, $restaurantData) {
             $userUpdate = [];
             if (isset($userData['full_name'])) {
                 $userUpdate['full_name'] = $userData['full_name'];
@@ -105,93 +105,59 @@ class VendeurService
                 $user->update($userUpdate);
             }
 
-            if (!empty($shopData) && $user->shop) {
-                $user->shop->update($shopData);
+            if (!empty($restaurantData) && $user->restaurant) {
+                $user->restaurant->update($restaurantData);
             }
 
-            return $user->load('shop');
+            return $user->load('restaurant');
         });
     }
 
-    /**
-     * Create a category.
-     */
-    public function createCategory(array $data): Category
-    {
-        return Category::create($data);
-    }
 
     /**
-     * Update a category.
+     * Create a dish.
      */
-    public function updateCategory(int $id, array $data, ?string $shopId = null): Category
-    {
-        $query = Category::where('id', $id);
-        if ($shopId) {
-            $query->where('shop_id', $shopId);
-        }
-        $category = $query->firstOrFail();
-        $category->update($data);
-        return $category;
-    }
-
-    /**
-     * Delete a category.
-     */
-    public function deleteCategory(int $id, ?string $shopId = null): bool
-    {
-        $query = Category::where('id', $id);
-        if ($shopId) {
-            $query->where('shop_id', $shopId);
-        }
-        $category = $query->firstOrFail();
-        return $category->delete();
-    }
-
-    /**
-     * Create a product.
-     */
-    public function createProduct(array $data): Product
+    public function createProduct(array $data): Dish
     {
         if (!empty($data['photo_file']) && $data['photo_file'] instanceof \Illuminate\Http\UploadedFile) {
-            $uploaded = CloudinaryService::uploadImage($data['photo_file'], 'products');
+            $uploaded = CloudinaryService::uploadImage($data['photo_file'], 'dishes');
             $data['photo_url'] = is_array($uploaded) ? ($uploaded[0] ?? null) : $uploaded;
             unset($data['photo_file']);
         }
 
-        return Product::create($data);
+        return Dish::create($data);
     }
 
     /**
-     * Update a product.
+     * Update a dish.
      */
-    public function updateProduct(string $productId, array $data, string $shopId): Product
+    public function updateProduct(string $dishId, array $data, string $restaurantId): Dish
     {
         if (isset($data['accompaniments'])) {
             unset($data['accompaniments']);
         }
 
-        $product = Product::where('id', $productId)->where('shop_id', $shopId)->firstOrFail();
-        $product->update($data);
+        $dish = Dish::where('id', $dishId)->where('restaurant_id', $restaurantId)->firstOrFail();
+        $dish->update($data);
 
-        return $product;
+        return $dish;
     }
 
     /**
-     * Delete a product.
+     * Delete a dish.
      */
-    public function deleteProduct(string $productId, string $shopId): bool
+    public function deleteProduct(string $dishId, string $restaurantId): bool
     {
-        $product = Product::where('id', $productId)->where('shop_id', $shopId)->firstOrFail();
-        return $product->delete();
+        $dish = Dish::where('id', $dishId)->where('restaurant_id', $restaurantId)->firstOrFail();
+        return $dish->delete();
     }
 
     /**
      * Accept a paid B2C order.
      */
-    public function acceptOrder(string $orderId, string $shopId): Order
+    public function acceptOrder(string $orderId, string $restaurantId): Order
     {
-        $order = Order::where('id', $orderId)->where('shop_id', $shopId)->firstOrFail();
+        $order = Order::where('id', $orderId)->where('restaurant_id', $restaurantId)->firstOrFail();
 
         if ($order->status !== OrderStatus::PAID) {
             throw new \Exception('Seules les commandes payées peuvent être acceptées.');
@@ -218,23 +184,15 @@ class VendeurService
     /**
      * Refuse a paid B2C order (triggers automatic refund and restocking).
      */
-    public function refuseOrder(string $orderId, string $shopId): Order
+    public function refuseOrder(string $orderId, string $restaurantId): Order
     {
-        $order = Order::where('id', $orderId)->where('shop_id', $shopId)->with('items.product')->firstOrFail();
+        $order = Order::where('id', $orderId)->where('restaurant_id', $restaurantId)->with('items.dish')->firstOrFail();
 
         if ($order->status !== OrderStatus::PAID && $order->status !== OrderStatus::PENDING_PAYMENT) {
             throw new \Exception('Seules les commandes non encore traitées ou payées peuvent être refusées.');
         }
 
         return DB::transaction(function () use ($order) {
-            // Restock items
-            foreach ($order->items as $item) {
-                $product = $item->product;
-                if ($product && $product->stock_qty !== null) {
-                    $product->increment('stock_qty', $item->quantity);
-                }
-            }
-
             // Refund payment (simulation)
             Payment::where('order_id', $order->id)->update([
                 'status' => PaymentStatus::REFUNDED,
@@ -268,9 +226,9 @@ class VendeurService
     /**
      * Progress order status: preparing -> delivering -> delivered.
      */
-    public function updateOrderStatus(string $orderId, string $status, string $shopId): Order
+    public function updateOrderStatus(string $orderId, string $status, string $restaurantId): Order
     {
-        $order = Order::where('id', $orderId)->where('shop_id', $shopId)->firstOrFail();
+        $order = Order::where('id', $orderId)->where('restaurant_id', $restaurantId)->firstOrFail();
 
         // Validate state transitions
         if ($status === OrderStatus::PREPARING->value) {
@@ -320,11 +278,11 @@ class VendeurService
     }
 
     /**
-     * Request a withdrawal from shop wallet to Mobile Money.
+     * Request a withdrawal from restaurant wallet to Mobile Money.
      */
-    public function requestWithdrawal(string $shopId, int $amount, string $provider, string $destPhone): Withdrawal
+    public function requestWithdrawal(string $restaurantId, int $amount, string $provider, string $destPhone): Withdrawal
     {
-        $wallet = Wallet::where('shop_id', $shopId)->firstOrFail();
+        $wallet = Wallet::where('restaurant_id', $restaurantId)->firstOrFail();
 
         // Fetch platform min withdrawal amount
         $minWithdrawal = (int) (PlatformSetting::where('key', 'min_withdrawal_fcfa')->first()?->value ?? 5000);
@@ -363,12 +321,12 @@ class VendeurService
     }
 
     /**
-     * Get all accompaniments for products of a specific shop.
+     * Get all accompaniments for dishes of a specific restaurant.
      */
-    public function getAccompaniments(string $shopId): \Illuminate\Database\Eloquent\Collection
+    public function getAccompaniments(string $restaurantId): \Illuminate\Database\Eloquent\Collection
     {
-        $productIds = Product::where('shop_id', $shopId)->pluck('id');
-        return Accompaniment::whereIn('product_id', $productIds)->with('product')->get();
+        $productIds = Dish::where('restaurant_id', $restaurantId)->pluck('id');
+        return Accompaniment::whereIn('dish_id', $productIds)->with('dish')->get();
     }
 
     /**
@@ -412,11 +370,11 @@ class VendeurService
     }
 
     /**
-     * Get promotions for a specific shop.
+     * Get promotions for a specific restaurant.
      */
-    public function getPromotions(string $shopId): \Illuminate\Database\Eloquent\Collection
+    public function getPromotions(string $restaurantId): \Illuminate\Database\Eloquent\Collection
     {
-        return Promotion::where('shop_id', $shopId)->with('product')->get();
+        return Promotion::where('restaurant_id', $restaurantId)->with('dish')->get();
     }
 
     /**

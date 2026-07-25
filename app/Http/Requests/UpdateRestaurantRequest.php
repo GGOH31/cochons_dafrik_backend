@@ -6,7 +6,7 @@ use App\Enums\AccountStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
-class UpdateShopRequest extends FormRequest
+class UpdateRestaurantRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,10 +15,10 @@ class UpdateShopRequest extends FormRequest
 
     public function rules(): array
     {
-        $shopId = $this->route('shop')?->id ?? $this->route('shop');
+        $restaurantId = $this->route('restaurant')?->id ?? $this->route('restaurant');
 
         return [
-            'owner_id' => ['sometimes', 'uuid', 'exists:users,id', 'unique:shops,owner_id,' . $shopId],
+            'owner_id' => ['sometimes', 'uuid', 'exists:users,id', 'unique:restaurants,owner_id,' . $restaurantId],
             'name' => ['sometimes', 'string', 'max:140'],
             'description' => ['nullable', 'string'],
             'logo_url' => ['nullable'],

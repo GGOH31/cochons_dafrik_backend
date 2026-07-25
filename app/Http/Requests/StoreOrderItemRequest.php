@@ -15,8 +15,8 @@ class StoreOrderItemRequest extends FormRequest
     {
         return [
             'order_id' => ['required', 'uuid', 'exists:orders,id'],
-            'product_id' => ['required', 'uuid', 'exists:products,id'],
-            'product_name' => ['required', 'string', 'max:160'],
+            'dish_id' => ['required', 'uuid', 'exists:dishes,id'],
+            'dish_name' => ['required', 'string', 'max:160'],
             'unit_price_fcfa' => ['required', 'integer', 'min:0'],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'options' => ['nullable', 'array'],

@@ -20,7 +20,7 @@ class UserResource extends JsonResource
             'status' => $this->status?->value,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'shop' => new ShopResource($this->whenLoaded('shop')),
+            'restaurant' => new RestaurantResource($this->whenLoaded('restaurant')),
             'addresses' => AddressResource::collection($this->whenLoaded('addresses')),
         ];
     }

@@ -16,8 +16,8 @@ class UpdatePromotionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shop_id' => ['sometimes', 'uuid', 'exists:shops,id'],
-            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'restaurant_id' => ['sometimes', 'uuid', 'exists:restaurants,id'],
+            'dish_id' => ['nullable', 'uuid', 'exists:dishes,id'],
             'title' => ['sometimes', 'string', 'max:140'],
             'promo_type' => ['sometimes', new Enum(PromoType::class)],
             'value' => ['sometimes', 'integer', 'min:1'],

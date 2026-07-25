@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Shop;
-use App\Models\ShopCommissionOverride;
+use App\Models\Restaurant;
+use App\Models\RestaurantCommissionOverride;
 use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Models\Dispute;
@@ -19,32 +19,32 @@ use Illuminate\Support\Facades\DB;
 
 class AdminService
 {
-    public function validateShop(string $shopId, string $adminId, string $status): Shop
+    public function validateShop(string $restaurantId, string $adminId, string $status): Restaurant
     {
-        $shop = Shop::findOrFail($shopId);
+        $restaurant = Restaurant::findOrFail($restaurantId);
 
-        $shop->update([
+        $restaurant->update([
             'status' => $status,
             'validated_by' => $adminId,
             'validated_at' => now(),
         ]);
 
-        if ($shop->owner) {
-            $shop->owner->update([
+        if ($restaurant->owner) {
+            $restaurant->owner->update([
                 'status' => $status,
             ]);
         }
 
-        return $shop;
+        return $restaurant;
     }
 
     /**
      * Update commission rate override for a shop.
      */
-    public function updateShopCommission(string $shopId, float $ratePct, string $adminId): ShopCommissionOverride
+    public function updateShopCommission(string $restaurantId, float $ratePct, string $adminId): RestaurantCommissionOverride
     {
-        return ShopCommissionOverride::updateOrCreate(
-            ['shop_id' => $shopId],
+        return RestaurantCommissionOverride::updateOrCreate(
+            ['restaurant_id' => $restaurantId],
             [
                 'rate_pct' => $ratePct,
                 'updated_by' => $adminId,
@@ -111,10 +111,8 @@ class AdminService
             if ($action === 'refund') {
                 // Restock items
                 foreach ($order->items as $item) {
-                    $product = $item->product;
-                    if ($product && $product->stock_qty !== null) {
-                        $product->increment('stock_qty', $item->quantity);
-                    }
+                    $dish = $item->dish;
+
                 }
 
                 // Refund payment (simulation)
@@ -165,7 +163,7 @@ class AdminService
                 ]);
 
                 // Notify vendor
-                $owner = $order->shop->owner;
+                $owner = $order->restaurant->owner;
                 if ($owner) {
                     $msg = "Le litige concernant la commande {$order->reference} a été résolu en votre faveur. Les fonds ont été crédités.";
                     if ($owner->fcm_token) {

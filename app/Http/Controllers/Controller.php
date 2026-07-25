@@ -7,10 +7,10 @@ abstract class Controller
     /**
      * Get the authenticated user's shop.
      */
-    protected function getAuthShop(?\Illuminate\Http\Request $request = null): ?\App\Models\Shop
+    protected function getAuthShop(?\Illuminate\Http\Request $request = null): ?\App\Models\Restaurant
     {
         $request = $request ?? request();
-        return $request->user()?->shop;
+        return $request->user()?->restaurant;
     }
 
     /**

@@ -5,18 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ShopCommissionOverride extends Model
+class RestaurantCommissionOverride extends Model
 {
     use HasFactory;
 
     public $timestamps = false;
 
-    protected $primaryKey = 'shop_id';
+    protected $primaryKey = 'restaurant_id';
     public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [
-        'shop_id',
+        'restaurant_id',
         'rate_pct',
         'updated_by',
         'updated_at',
@@ -30,9 +30,9 @@ class ShopCommissionOverride extends Model
         ];
     }
 
-    public function shop()
+    public function restaurant()
     {
-        return $this->belongsTo(Shop::class);
+        return $this->belongsTo(Restaurant::class, 'restaurant_id');
     }
 
     public function updater()

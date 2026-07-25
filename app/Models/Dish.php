@@ -6,20 +6,18 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Product extends Model
+class Dish extends Model
 {
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'shop_id',
-        'category_id',
+        'restaurant_id',
         'name',
         'description',
         'photo_url',
-        'unit',
+
         'price_fcfa',
         'prep_minutes',
-        'stock_qty',
         'is_active',
         'rating_avg',
         'rating_count',
@@ -30,7 +28,6 @@ class Product extends Model
         return [
             'price_fcfa' => 'integer',
             'prep_minutes' => 'integer',
-            'stock_qty' => 'integer',
             'is_active' => 'boolean',
             'rating_avg' => 'float',
             'rating_count' => 'integer',
@@ -39,14 +36,9 @@ class Product extends Model
         ];
     }
 
-    public function shop()
+    public function restaurant()
     {
-        return $this->belongsTo(Shop::class);
-    }
-
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Restaurant::class);
     }
 
     public function promotions()

@@ -15,7 +15,7 @@ class StoreReviewRequest extends FormRequest
     {
         return [
             'order_id' => ['required', 'uuid', 'exists:orders,id', 'unique:reviews,order_id'],
-            'shop_id' => ['required', 'uuid', 'exists:shops,id'],
+            'restaurant_id' => ['required', 'uuid', 'exists:restaurants,id'],
             'author_id' => ['required', 'uuid', 'exists:users,id'],
             'rating' => ['required', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string'],

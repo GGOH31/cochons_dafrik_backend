@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Shop extends Model
+class Restaurant extends Model
 {
     use HasFactory, HasUuids;
 
@@ -61,14 +61,9 @@ class Shop extends Model
         return $this->belongsTo(User::class, 'validated_by');
     }
 
-    public function products()
+    public function dishes()
     {
-        return $this->hasMany(Product::class);
-    }
-
-    public function categories()
-    {
-        return $this->hasMany(Category::class);
+        return $this->hasMany(Dish::class);
     }
 
     public function promotions()
@@ -83,7 +78,7 @@ class Shop extends Model
 
     public function commissionOverride()
     {
-        return $this->hasOne(ShopCommissionOverride::class);
+        return $this->hasOne(RestaurantCommissionOverride::class);
     }
 
     public function orders()

@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\Address;
-use App\Models\Shop;
-use App\Models\Product;
+use App\Models\Restaurant;
+use App\Models\Dish;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Escrow;
@@ -35,11 +35,11 @@ class ClientService
     }
 
     /**
-     * Search active shops with optional filters and GPS geo-localization.
+     * Search active restaurants with optional filters and GPS geo-localization.
      */
-    public function searchShops(array $filters): Collection
+    public function searchRestaurants(array $filters): Collection
     {
-        $query = Shop::where('status', AccountStatus::ACTIVE);
+        $query = Restaurant::where('status', AccountStatus::ACTIVE);
 
         if (!empty($filters['name'])) {
             $query->where('name', 'ILIKE', '%' . $filters['name'] . '%');
@@ -70,23 +70,21 @@ class ClientService
     }
 
     /**
-     * List products of a shop with optional filters.
+     * List dishes of a shop with optional filters.
      */
-    public function getShopProducts(string $shopId, array $filters): Collection
+    public function getShopDishes(string $restaurantId, array $filters): Collection
     {
-        Shop::where('id', $shopId)->where('status', AccountStatus::ACTIVE)->firstOrFail();
+        Restaurant::where('id', $restaurantId)->where('status', AccountStatus::ACTIVE)->firstOrFail();
 
-        $query = Product::where('shop_id', $shopId)
+        $query = Dish::where('restaurant_id', $restaurantId)
             ->where('is_active', true)
-            ->with(['shop', 'category', 'accompaniments']);
+            ->with(['restaurant', 'accompaniments']);
 
         if (!empty($filters['name'])) {
             $query->where('name', 'ILIKE', '%' . $filters['name'] . '%');
         }
 
-        if (!empty($filters['category_id'])) {
-            $query->where('category_id', $filters['category_id']);
-        }
+
 
         if (isset($filters['price_min'])) {
             $query->where('price_fcfa', '>=', (int) $filters['price_min']);
@@ -96,7 +94,7 @@ class ClientService
             $query->where('price_fcfa', '<=', (int) $filters['price_max']);
         }
 
-        return $query->with('shop')->get();
+        return $query->with('restaurant')->get();
     }
 
     /**
@@ -104,35 +102,30 @@ class ClientService
      */
     public function createOrder(User $buyer, array $data): Order
     {
-        $shopId = $data['shop_id'];
+        $restaurantId = $data['restaurant_id'];
         $items = $data['items'];
 
-        $shop = Shop::where('id', $shopId)->where('status', AccountStatus::ACTIVE)->firstOrFail();
+        $restaurant = Restaurant::where('id', $restaurantId)->where('status', AccountStatus::ACTIVE)->firstOrFail();
 
-        return DB::transaction(function () use ($buyer, $shop, $data, $items) {
+        return DB::transaction(function () use ($buyer, $restaurant, $data, $items) {
             $subtotal = 0;
             $itemsData = [];
 
             foreach ($items as $item) {
-                $product = Product::where('id', $item['product_id'])
-                                  ->where('shop_id', $shop->id)
+                $dish = Dish::where('id', $item['dish_id'])
+                                  ->where('restaurant_id', $restaurant->id)
                                   ->where('is_active', true)
                                   ->firstOrFail();
 
-                if ($product->stock_qty !== null) {
-                    if ($product->stock_qty < $item['quantity']) {
-                        throw new \Exception("Stock insuffisant pour le produit: {$product->name}");
-                    }
-                    $product->decrement('stock_qty', $item['quantity']);
-                }
 
-                $lineTotal = (int) round($product->price_fcfa * $item['quantity']);
+
+                $lineTotal = (int) round($dish->price_fcfa * $item['quantity']);
                 $subtotal += $lineTotal;
 
                 $itemsData[] = [
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'unit_price_fcfa' => $product->price_fcfa,
+                    'dish_id' => $dish->id,
+                    'dish_name' => $dish->name,
+                    'unit_price_fcfa' => $dish->price_fcfa,
                     'quantity' => $item['quantity'],
                     'options' => $item['options'] ?? null,
                     'line_total_fcfa' => $lineTotal,
@@ -141,7 +134,7 @@ class ClientService
 
             $deliveryFee = 0;
             if ($data['delivery_mode'] === DeliveryMode::DELIVERY->value) {
-                $deliveryFee = $shop->delivery_fee_fcfa;
+                $deliveryFee = $restaurant->delivery_fee_fcfa;
             }
 
             $total = $subtotal + $deliveryFee;
@@ -152,7 +145,7 @@ class ClientService
                 'reference' => $reference,
                 'order_type' => $data['order_type'],
                 'buyer_id' => $buyer->id,
-                'shop_id' => $shop->id,
+                'restaurant_id' => $restaurant->id,
                 'status' => OrderStatus::PENDING_PAYMENT,
                 'delivery_mode' => $data['delivery_mode'],
                 'address_id' => $data['address_id'] ?? null,
@@ -208,7 +201,7 @@ class ClientService
             ]);
 
             // Notify shop owner
-            $owner = $order->shop->owner;
+            $owner = $order->restaurant->owner;
             if ($owner) {
                 $msg = "Nouvelle commande {$order->reference} reçue ! Montant: {$order->total_fcfa} FCFA.";
                 if ($owner->fcm_token) {
@@ -228,8 +221,14 @@ class ClientService
     {
         $order = Order::where('id', $orderId)->where('buyer_id', $buyer->id)->firstOrFail();
 
-        if ($order->status !== OrderStatus::DELIVERED) {
-            throw new \Exception('Seules les commandes livrées peuvent être confirmées.');
+        if (!in_array($order->status, [OrderStatus::DELIVERED, OrderStatus::DELIVERING])) {
+            throw new \Exception('Seules les commandes en cours de livraison ou livrées peuvent être confirmées.');
+        }
+
+        if ($order->status === OrderStatus::DELIVERING) {
+            $order->status = OrderStatus::DELIVERED;
+            $order->delivered_at = now();
+            $order->save();
         }
 
         DB::transaction(function () use ($order, $buyer) {
@@ -239,7 +238,7 @@ class ClientService
         $order->refresh();
 
         // Notify vendor
-        $owner = $order->shop->owner;
+        $owner = $order->restaurant->owner;
         if ($owner) {
             $msg = "Le client a confirmé la réception de la commande {$order->reference}. Les fonds ont été libérés dans votre portefeuille.";
             if ($owner->fcm_token) {
@@ -264,7 +263,7 @@ class ClientService
 
         return Review::create([
             'order_id' => $order->id,
-            'shop_id' => $order->shop_id,
+            'restaurant_id' => $order->restaurant_id,
             'author_id' => $buyer->id,
             'rating' => $data['rating'],
             'comment' => $data['comment'] ?? null,
@@ -281,14 +280,14 @@ class ClientService
         $items = [];
         foreach ($oldOrder->items as $item) {
             $items[] = [
-                'product_id' => $item->product_id,
+                'dish_id' => $item->dish_id,
                 'quantity' => $item->quantity,
                 'options' => $item->options,
             ];
         }
 
         return $this->createOrder($buyer, [
-            'shop_id' => $oldOrder->shop_id,
+            'restaurant_id' => $oldOrder->restaurant_id,
             'order_type' => $oldOrder->order_type->value,
             'delivery_mode' => $oldOrder->delivery_mode->value,
             'address_id' => $oldOrder->address_id,
@@ -297,11 +296,11 @@ class ClientService
     }
 
     /**
-     * Search products by name across all shops.
+     * Search dishes by name across all restaurants.
      */
-    public function searchProducts(array $filters): Collection
+    public function searchDishes(array $filters): Collection
     {
-        $query = Product::where('is_active', true)->with(['shop', 'category', 'accompaniments']);
+        $query = Dish::where('is_active', true)->with(['restaurant', 'accompaniments']);
 
         if (!empty($filters['name'])) {
             $query->where('name', 'ILIKE', '%' . $filters['name'] . '%');

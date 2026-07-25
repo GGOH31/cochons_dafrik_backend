@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateProductRequest extends FormRequest
+class UpdateDishRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,15 +14,13 @@ class UpdateProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shop_id' => ['sometimes', 'uuid', 'exists:shops,id'],
-            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'restaurant_id' => ['sometimes', 'uuid', 'exists:restaurants,id'],
             'name' => ['sometimes', 'string', 'max:160'],
             'description' => ['nullable', 'string'],
             'photo_url' => ['nullable'],
             'unit' => ['sometimes', 'string', 'max:30'],
             'price_fcfa' => ['sometimes', 'integer', 'min:1'],
             'prep_minutes' => ['nullable', 'integer', 'min:1'],
-            'stock_qty' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
             'accompaniments' => ['nullable', 'string'],
         ];

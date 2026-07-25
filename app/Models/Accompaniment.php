@@ -10,7 +10,7 @@ class Accompaniment extends Model
     use HasFactory;
 
     protected $fillable = [
-        'product_id',
+        'dish_id',
         'name',
         'photo_url',
         'prix_unit',
@@ -23,8 +23,8 @@ class Accompaniment extends Model
         ];
     }
 
-    public function product()
+    public function dish()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Dish::class);
     }
 }

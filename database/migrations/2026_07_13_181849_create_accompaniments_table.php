@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('accompaniments', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('product_id')->constrained('products')->onDelete('cascade');
+            $table->foreignUuid('dish_id')->constrained('dishes')->onDelete('cascade');
             $table->string('name', 120);
             $table->text('photo_url')->nullable();
             $table->integer('prix_unit')->default(0);

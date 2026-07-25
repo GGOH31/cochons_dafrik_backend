@@ -16,8 +16,8 @@ class StorePromotionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shop_id' => ['required', 'uuid', 'exists:shops,id'],
-            'product_id' => ['nullable', 'uuid', 'exists:products,id'],
+            'restaurant_id' => ['required', 'uuid', 'exists:restaurants,id'],
+            'dish_id' => ['nullable', 'uuid', 'exists:dishes,id'],
             'title' => ['required', 'string', 'max:140'],
             'promo_type' => ['required', new Enum(PromoType::class)],
             'value' => ['required', 'integer', 'min:1'],
