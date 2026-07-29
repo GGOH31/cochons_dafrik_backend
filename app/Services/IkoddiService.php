@@ -30,7 +30,7 @@ class IkoddiService
     public function sendSms(
         array $sentTo,
         string $message,
-        string $from = 'IKODDI',
+        string $from = 'CochonAfrik',
         string $countryStringCode = 'CI',
         string $countryNumberCode = '225',
         ?string $campaignName = null

@@ -14,6 +14,7 @@ return new class extends Migration
             CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
             -- 1. ÉNUMÉRATIONS
+            DROP TYPE IF EXISTS user_role, account_status, order_type, order_status, delivery_mode, payment_provider, payment_status, escrow_status, tx_type, withdrawal_status, notif_channel, dispute_status, promo_type CASCADE;
             CREATE TYPE user_role AS ENUM (\'client\', \'vendeur\', \'grossiste\', \'admin\');
             CREATE TYPE account_status AS ENUM (\'pending\', \'active\', \'suspended\', \'rejected\');
             CREATE TYPE order_type AS ENUM (\'b2c\', \'b2b\');

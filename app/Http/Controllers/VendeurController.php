@@ -584,7 +584,8 @@ class VendeurController extends Controller
         $query = \App\Models\Order::where('restaurant_id', $restaurant->id)->with(['items.dish', 'buyer', 'address']);
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $statuses = explode(',', $request->input('status'));
+            $query->whereIn('status', $statuses);
         }
 
         if ($request->has('per_page')) {
@@ -648,17 +649,10 @@ class VendeurController extends Controller
             $commissionPct = $override ? (float) $override->commission_pct : 3.0;
 
             $latestOrder = \App\Models\Order::where('restaurant_id', $restaurant->id)
-                ->whereIn('status', [\App\Enums\OrderStatus::PAID->value, \App\Enums\OrderStatus::PENDING_PAYMENT->value])
+                ->where('status', OrderStatus::PAID->value)
                 ->with(['items.dish', 'buyer', 'address'])
                 ->latest()
                 ->first();
-
-            if (!$latestOrder) {
-                $latestOrder = \App\Models\Order::where('restaurant_id', $restaurant->id)
-                    ->with(['items.dish', 'buyer', 'address'])
-                    ->latest()
-                    ->first();
-            }
 
             $dashboardData = [
                 'restaurant' => [

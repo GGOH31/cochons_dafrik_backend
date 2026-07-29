@@ -253,7 +253,8 @@ class ClientController extends Controller
             ->with(['items.dish', 'restaurant', 'address']);
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $statuses = explode(',', $request->input('status'));
+            $query->whereIn('status', $statuses);
         }
 
         if ($request->has('per_page')) {

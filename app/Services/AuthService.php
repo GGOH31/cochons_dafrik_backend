@@ -34,7 +34,7 @@ class AuthService
 
         // Send OTP via SMS using IkoddiService
         $message = "Votre code de validation Cochons d'Afrik est : {$code}. Valable 5 minutes.";
-        app(IkoddiService::class)->sendSms([$recipient], $message, 'Ikoddi', 'CI', '225');
+        app(IkoddiService::class)->sendSms([$recipient], $message, 'CI', '225');
 
         return $code;
     }
@@ -242,7 +242,7 @@ class AuthService
 
         // Send OTP via SMS using IkoddiService
         $message = "Votre code de réinitialisation de mot de passe Cochons d'Afrik est : {$code}. Valable 5 minutes.";
-        app(IkoddiService::class)->sendSms([$recipient], $message, 'Ikoddi', 'CI', '225');
+        app(IkoddiService::class)->sendSms([$recipient], $message, 'CI', '225');
 
         return $code;
     }
