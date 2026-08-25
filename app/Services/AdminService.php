@@ -22,6 +22,7 @@ use App\Enums\WithdrawalStatus;
 use App\Enums\TxType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class AdminService
 {
@@ -187,20 +188,26 @@ class AdminService
     }
 
     /**
-     * Create a restaurant for a vendeur. Restaurants are no longer self-created by
-     * vendeurs at registration — an admin creates the shop (and its wallet) once the
-     * seller account has been reviewed, and it goes live immediately (no separate
-     * pending-review step, since the admin already vetted it by creating it).
+     * Create a vendeur account and its restaurant (+ wallet) together. Vendeurs never
+     * self-register: an admin creates both the seller account and the shop in one go,
+     * and it goes live immediately (no separate pending-review step, since the admin
+     * already vetted it by creating it).
      */
-    public function createRestaurantForVendeur(string $ownerId, array $data, string $adminId): Restaurant
+    public function createRestaurantWithNewVendeur(array $vendeurData, array $shopData, string $adminId): Restaurant
     {
-        $owner = User::findOrFail($ownerId);
+        return DB::transaction(function () use ($vendeurData, $shopData, $adminId) {
+            $vendeur = User::create([
+                'role' => UserRole::VENDEUR,
+                'phone' => $vendeurData['phone'],
+                'full_name' => $vendeurData['full_name'],
+                'email' => $vendeurData['email'] ?? null,
+                'password_hash' => Hash::make($vendeurData['password']),
+                'status' => AccountStatus::ACTIVE,
+                'phone_verified_at' => now(),
+            ]);
 
-        if ($owner->role !== UserRole::VENDEUR) {
-            throw new \Exception("Cet utilisateur n'est pas un vendeur.");
-        }
-
-        return app(\App\Services\VendeurService::class)->createShop($owner, $data, $adminId);
+            return app(\App\Services\VendeurService::class)->createShop($vendeur, $shopData, $adminId);
+        });
     }
 
     /**
@@ -219,6 +226,17 @@ class AdminService
         }
 
         return $query;
+    }
+
+    /**
+     * Update a restaurant's details (admin edit).
+     */
+    public function updateRestaurant(string $restaurantId, array $data): Restaurant
+    {
+        $restaurant = Restaurant::findOrFail($restaurantId);
+        $restaurant->update($data);
+
+        return $restaurant->fresh(['owner', 'wallet', 'commissionOverride']);
     }
 
     /**

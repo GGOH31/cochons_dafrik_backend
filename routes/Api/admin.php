@@ -8,6 +8,7 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'admin'])->group(function
     Route::post('/restaurants', [AdminController::class, 'createRestaurant']);
     Route::get('/restaurants', [AdminController::class, 'getRestaurants']);
     Route::get('/restaurants/{id}', [AdminController::class, 'getRestaurant']);
+    Route::put('/restaurants/{id}', [AdminController::class, 'updateRestaurant']);
     Route::post('/restaurants/{id}/validate', [AdminController::class, 'validateShop']);
     Route::put('/restaurants/{shopId}/commission', [AdminController::class, 'updateShopCommission']);
 

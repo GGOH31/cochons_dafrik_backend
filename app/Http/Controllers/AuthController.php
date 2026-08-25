@@ -71,16 +71,19 @@ class AuthController extends Controller
     public function register(StoreUserRequest $request)
     {
         $data = $request->validated();
+
+        // Only clients self-register from the app. Vendeur accounts (and their shop)
+        // are created exclusively by an admin — see AdminController::createRestaurant.
+        if (($data['role'] ?? null) === UserRole::VENDEUR->value) {
+            return $this->sendError(
+                "Les comptes vendeurs sont créés par l'administration, pas par inscription directe.",
+                [],
+                422
+            );
+        }
+
         $result = DB::transaction(function () use ($data) {
-            if ($data['role'] === UserRole::VENDEUR->value) {
-                $res = $this->authService->registerVendeur($data);
-                if (!empty($data['restaurant'])) {
-                    app(\App\Services\VendeurService::class)->createShop($res['user'], $data['restaurant']);
-                }
-                return $res;
-            } else {              
-                return $this->authService->registerClient($data);
-            }
+            return $this->authService->registerClient($data);
         });
 
         // Send OTP safely only after transaction is committed successfully

@@ -42,12 +42,18 @@ class AdminController extends Controller
     }
 
     /**
-     * Create a restaurant for a vendeur (shops are no longer self-created at registration).
+     * Create a vendeur account + its restaurant (shops are no longer self-created
+     * at registration).
      */
     public function createRestaurant(Request $request)
     {
         $validated = $request->validate([
-            'owner_id' => ['required', 'uuid', 'exists:users,id', 'unique:restaurants,owner_id'],
+            // Vendeur account
+            'owner_full_name' => ['required', 'string', 'max:120'],
+            'owner_phone' => ['required', 'string', 'max:10', 'unique:users,phone'],
+            'owner_email' => ['nullable', 'email', 'max:160', 'unique:users,email'],
+            'owner_password' => ['required', 'string', 'min:6'],
+            // Shop
             'name' => ['required', 'string', 'max:140'],
             'description' => ['nullable', 'string'],
             'logo_url' => ['nullable', 'string', 'url'],
@@ -62,13 +68,46 @@ class AdminController extends Controller
         ]);
 
         try {
-            $restaurant = $this->adminService->createRestaurantForVendeur(
-                $validated['owner_id'],
+            $restaurant = $this->adminService->createRestaurantWithNewVendeur(
+                [
+                    'full_name' => $validated['owner_full_name'],
+                    'phone' => $validated['owner_phone'],
+                    'email' => $validated['owner_email'] ?? null,
+                    'password' => $validated['owner_password'],
+                ],
                 $validated,
                 $request->user()->id
             );
 
-            return $this->sendResponse(new RestaurantResource($restaurant), 'Boutique créée avec succès.', 201);
+            return $this->sendResponse(new RestaurantResource($restaurant), 'Vendeur et boutique créés avec succès.', 201);
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Update a restaurant's details (admin edit).
+     */
+    public function updateRestaurant(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'max:140'],
+            'description' => ['nullable', 'string'],
+            'logo_url' => ['nullable', 'string', 'url'],
+            'commune' => ['nullable', 'string', 'max:80'],
+            'address' => ['nullable', 'string'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'is_open' => ['nullable', 'boolean'],
+            'delivery_fee_fcfa' => ['nullable', 'integer', 'min:0'],
+            'min_order_fcfa' => ['nullable', 'integer', 'min:0'],
+            'delivery_zone' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $restaurant = $this->adminService->updateRestaurant($id, $validated);
+
+            return $this->sendResponse(new RestaurantResource($restaurant), 'Restaurant mis à jour.');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
