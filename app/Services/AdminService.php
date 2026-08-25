@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Order;
 use App\Models\Withdrawal;
 use App\Models\WalletTransaction;
+use App\Enums\UserRole;
 use App\Enums\AccountStatus;
 use App\Enums\DisputeStatus;
 use App\Enums\EscrowStatus;
@@ -183,6 +184,23 @@ class AdminService
 
             return $dispute;
         });
+    }
+
+    /**
+     * Create a restaurant for a vendeur. Restaurants are no longer self-created by
+     * vendeurs at registration — an admin creates the shop (and its wallet) once the
+     * seller account has been reviewed, and it goes live immediately (no separate
+     * pending-review step, since the admin already vetted it by creating it).
+     */
+    public function createRestaurantForVendeur(string $ownerId, array $data, string $adminId): Restaurant
+    {
+        $owner = User::findOrFail($ownerId);
+
+        if ($owner->role !== UserRole::VENDEUR) {
+            throw new \Exception("Cet utilisateur n'est pas un vendeur.");
+        }
+
+        return app(\App\Services\VendeurService::class)->createShop($owner, $data, $adminId);
     }
 
     /**

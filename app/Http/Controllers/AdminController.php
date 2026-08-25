@@ -42,6 +42,39 @@ class AdminController extends Controller
     }
 
     /**
+     * Create a restaurant for a vendeur (shops are no longer self-created at registration).
+     */
+    public function createRestaurant(Request $request)
+    {
+        $validated = $request->validate([
+            'owner_id' => ['required', 'uuid', 'exists:users,id', 'unique:restaurants,owner_id'],
+            'name' => ['required', 'string', 'max:140'],
+            'description' => ['nullable', 'string'],
+            'logo_url' => ['nullable', 'string', 'url'],
+            'commune' => ['nullable', 'string', 'max:80'],
+            'address' => ['nullable', 'string'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'is_open' => ['nullable', 'boolean'],
+            'delivery_fee_fcfa' => ['nullable', 'integer', 'min:0'],
+            'min_order_fcfa' => ['nullable', 'integer', 'min:0'],
+            'delivery_zone' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $restaurant = $this->adminService->createRestaurantForVendeur(
+                $validated['owner_id'],
+                $validated,
+                $request->user()->id
+            );
+
+            return $this->sendResponse(new RestaurantResource($restaurant), 'Boutique créée avec succès.', 201);
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
      * List restaurants (filters: status, search).
      */
     public function getRestaurants(Request $request)

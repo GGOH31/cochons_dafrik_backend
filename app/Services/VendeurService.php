@@ -27,15 +27,20 @@ use Illuminate\Support\Facades\Hash;
 class VendeurService
 {
     /**
-     * Create a restaurant and its associated wallet for the vendor.
+     * Create a restaurant and its associated wallet for the vendor. Called by an admin
+     * (see AdminService::createRestaurantForVendeur) — vendeurs no longer self-create
+     * their shop.
+     *
+     * @param string|null $validatedBy Admin user id, if created by an admin (marks the
+     *                                  shop active immediately instead of pending review).
      */
-    public function createShop(User $user, array $data): Restaurant
+    public function createShop(User $user, array $data, ?string $validatedBy = null): Restaurant
     {
         if ($user->restaurant) {
             throw new \Exception('Cet utilisateur possède déjà une boutique.');
         }
 
-        return DB::transaction(function () use ($user, $data) {
+        return DB::transaction(function () use ($user, $data, $validatedBy) {
             $logoUrl = null;
             $supportingDocsUrl = null;
 
@@ -65,7 +70,9 @@ class VendeurService
                 'is_open' => $data['is_open'] ?? false,
                 'delivery_fee_fcfa' => $data['delivery_fee_fcfa'] ?? 0,
                 'min_order_fcfa' => $data['min_order_fcfa'] ?? 0,
-                'status' => AccountStatus::PENDING,
+                'status' => $validatedBy ? AccountStatus::ACTIVE : AccountStatus::PENDING,
+                'validated_by' => $validatedBy,
+                'validated_at' => $validatedBy ? now() : null,
                 'supporting_docs_url' => $supportingDocsUrl,
                 'opening_hours' => $data['opening_hours'] ?? null,
                 'delivery_zone' => $data['delivery_zone'] ?? null,

@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreRestaurantRequest;
-
-
 use App\Http\Requests\StoreDishRequest;
 use App\Http\Requests\UpdateDishRequest;
 use App\Http\Resources\RestaurantResource;
@@ -27,19 +24,6 @@ class VendeurController extends Controller
     public function __construct(VendeurService $vendeurService)
     {
         $this->vendeurService = $vendeurService;
-    }
-
-    /**
-     * Create shop & wallet.
-     */
-    public function createShop(StoreRestaurantRequest $request)
-    {
-        try {
-            $restaurant = $this->vendeurService->createShop($request->user(), $request->validated());
-            return $this->sendResponse(new RestaurantResource($restaurant), 'Boutique et portefeuille créés avec succès.', 201);
-        } catch (\Exception $e) {
-            return $this->sendError($e->getMessage(), [], 422);
-        }
     }
 
     /**

@@ -4,7 +4,8 @@ use App\Http\Controllers\VendeurController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/vendeur')->middleware('auth:sanctum')->group(function () {
-    Route::post('/restaurant', [VendeurController::class, 'createShop']);
+    // La boutique n'est plus créée par le vendeur lui-même : c'est l'administrateur
+    // qui la crée (voir POST /v1/admin/restaurants) une fois le compte vendeur approuvé.
     Route::put('/profile', [VendeurController::class, 'updateProfile']);
     Route::get('/dashboard', [VendeurController::class, 'getDashboard']);
     Route::get('/profile/personal', [VendeurController::class, 'getPersonalInfo']);
