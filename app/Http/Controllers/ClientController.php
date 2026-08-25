@@ -204,6 +204,50 @@ class ClientController extends Controller
     }
 
     /**
+     * Initialize a real CinetPay web payment for the order. Returns a payment_url the
+     * app must open (WebView) so the client can pay with Orange Money, MTN, Wave, carte, etc.
+     */
+    public function payOrderCinetPay(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'phone' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        try {
+            $result = $this->clientService->initiateCinetPayPayment($id, $request->user(), $validated['phone'] ?? null);
+
+            return $this->sendResponse([
+                'payment_url' => $result['payment_url'],
+                'order' => new OrderResource($result['order']),
+            ], 'Paiement initialisé, redirection vers CinetPay.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
+     * Manually re-check a CinetPay payment's status (used by the app after returning
+     * from the payment WebView, in case the notify_url webhook hasn't landed yet).
+     */
+    public function verifyCinetPayPayment(Request $request, $id)
+    {
+        try {
+            $order = \App\Models\Order::where('id', $id)->where('buyer_id', $request->user()->id)->firstOrFail();
+
+            $payment = $order->payments()
+                ->where('provider', PaymentProvider::CINETPAY)
+                ->latest('created_at')
+                ->firstOrFail();
+
+            $this->clientService->verifyCinetPayPayment($payment->provider_ref);
+
+            return $this->sendResponse(new OrderResource($order->fresh()), 'Statut de paiement vérifié.');
+        } catch (\Exception $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    /**
      * Confirm order reception (releasing escrow funds).
      */
     public function confirmReception(Request $request, $id)

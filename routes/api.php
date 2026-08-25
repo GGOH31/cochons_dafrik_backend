@@ -18,3 +18,4 @@ require __DIR__ . '/Api/auth.php';
 require __DIR__ . '/Api/client.php';
 require __DIR__ . '/Api/vendeur.php';
 require __DIR__ . '/Api/admin.php';
+require __DIR__ . '/Api/payments.php';

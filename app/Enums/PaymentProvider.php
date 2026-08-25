@@ -9,4 +9,5 @@ enum PaymentProvider: string
     case MOOV_MONEY = 'moov_money';
     case WAVE = 'wave';
     case CARD = 'card';
+    case CINETPAY = 'cinetpay';
 }

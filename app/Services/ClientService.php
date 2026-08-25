@@ -16,6 +16,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\EscrowStatus;
 use App\Enums\DeliveryMode;
 use App\Enums\OrderType;
+use App\Enums\PaymentProvider;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -212,6 +213,175 @@ class ClientService
 
             return $order->load(['payments', 'escrow']);
         });
+    }
+
+    /**
+     * Initialize a CinetPay web payment for an order and return the payment_url the
+     * client must be redirected to. The order is only marked PAID once CinetPay confirms
+     * success, via the notify_url webhook or a manual status verification.
+     */
+    public function initiateCinetPayPayment(string $orderId, User $buyer, ?string $payerPhone = null): array
+    {
+        $order = Order::where('id', $orderId)->where('buyer_id', $buyer->id)->firstOrFail();
+
+        if ($order->status !== OrderStatus::PENDING_PAYMENT) {
+            throw new \Exception('Cette commande a déjà été payée ou n\'est pas en attente de paiement.');
+        }
+
+        $merchantTransactionId = 'CDA' . now()->format('YmdHis') . strtoupper(Str::random(6));
+        [$firstName, $lastName] = $this->splitClientName($buyer->full_name);
+        $phone = $payerPhone ?: $buyer->phone;
+
+        $response = app(CinetPayService::class)->initializePayment([
+            'merchant_transaction_id' => $merchantTransactionId,
+            'amount' => $order->total_fcfa,
+            'designation' => "Commande {$order->reference}",
+            'client_first_name' => $firstName,
+            'client_last_name' => $lastName,
+            'client_email' => $buyer->email ?: $this->fallbackClientEmail($buyer->phone),
+            'client_phone_number' => $this->normalizePhoneForCinetPay($phone),
+        ]);
+
+        if (($response['code'] ?? null) != 200 || empty($response['payment_url'])) {
+            $message = $response['description']
+                ?? $response['message']
+                ?? $response['details']['message'] ?? null;
+
+            if (!empty($response['details']['errors'])) {
+                $message = ($message ? "{$message} : " : '') . implode(', ', $response['details']['errors']);
+            }
+
+            throw new \Exception($message ?? 'Échec de l\'initialisation du paiement CinetPay.');
+        }
+
+        Payment::create([
+            'order_id' => $order->id,
+            'provider' => PaymentProvider::CINETPAY,
+            'provider_ref' => $response['transaction_id'],
+            'amount_fcfa' => $order->total_fcfa,
+            'status' => PaymentStatus::INITIATED,
+            'payload' => [
+                'merchant_transaction_id' => $merchantTransactionId,
+                'payment_token' => $response['payment_token'] ?? null,
+                'payment_url' => $response['payment_url'] ?? null,
+                'notify_token' => $response['notify_token'] ?? null,
+                'init_response' => $response,
+            ],
+        ]);
+
+        return [
+            'order' => $order,
+            'payment_url' => $response['payment_url'],
+        ];
+    }
+
+    /**
+     * Re-verify a CinetPay transaction's status directly with CinetPay's API and finalize
+     * the payment/order accordingly. Called from the notify_url webhook and from a manual
+     * "verify" endpoint the app can poll after the client returns from the payment page.
+     * Idempotent: safe to call multiple times for the same transaction.
+     */
+    public function verifyCinetPayPayment(string $transactionId): Payment
+    {
+        $payment = Payment::where('provider', PaymentProvider::CINETPAY)
+            ->where('provider_ref', $transactionId)
+            ->firstOrFail();
+
+        if (in_array($payment->status, [PaymentStatus::SUCCESS, PaymentStatus::FAILED], true)) {
+            return $payment;
+        }
+
+        $status = app(CinetPayService::class)->checkStatus($transactionId);
+        $cinetpayStatus = strtoupper($status['status'] ?? '');
+
+        return DB::transaction(function () use ($payment, $status, $cinetpayStatus) {
+            $payment->refresh();
+
+            if (in_array($payment->status, [PaymentStatus::SUCCESS, PaymentStatus::FAILED], true)) {
+                return $payment;
+            }
+
+            if ($cinetpayStatus === 'SUCCESS') {
+                $payment->update([
+                    'status' => PaymentStatus::SUCCESS,
+                    'paid_at' => now(),
+                    'payload' => array_merge($payment->payload ?? [], ['check_status' => $status]),
+                ]);
+
+                $order = $payment->order;
+
+                Escrow::create([
+                    'order_id' => $order->id,
+                    'payment_id' => $payment->id,
+                    'amount_fcfa' => $order->total_fcfa,
+                    'status' => EscrowStatus::HELD,
+                    'held_at' => now(),
+                ]);
+
+                $order->update(['status' => OrderStatus::PAID]);
+
+                $owner = $order->restaurant->owner;
+                if ($owner) {
+                    $msg = "Nouvelle commande {$order->reference} reçue ! Montant: {$order->total_fcfa} FCFA.";
+                    if ($owner->fcm_token) {
+                        app(FirebasePushService::class)->sendPush($owner->fcm_token, "Nouvelle Commande", $msg);
+                    }
+                    app(SmsPushService::class)->sendSms($owner->phone, $msg);
+                }
+            } elseif ($cinetpayStatus === 'FAILED') {
+                $payment->update([
+                    'status' => PaymentStatus::FAILED,
+                    'payload' => array_merge($payment->payload ?? [], ['check_status' => $status]),
+                ]);
+            }
+            // INITIATED / PENDING : le paiement est toujours en cours côté client, on ne change rien.
+
+            return $payment->fresh();
+        });
+    }
+
+    /**
+     * Split a full name into (first, last) as required by CinetPay (min 2 chars each).
+     */
+    protected function splitClientName(string $fullName): array
+    {
+        $parts = preg_split('/\s+/', trim($fullName), 2) ?: [];
+        $first = $parts[0] ?? 'Client';
+        $last = $parts[1] ?? $first;
+
+        $pad = fn (string $v) => mb_strlen($v) < 2 ? str_pad($v, 2, $v === '' ? 'X' : $v) : $v;
+
+        return [$pad($first), $pad($last)];
+    }
+
+    /**
+     * CinetPay requires a client email; synthesize one from the phone when the account has none.
+     */
+    protected function fallbackClientEmail(string $phone): string
+    {
+        return preg_replace('/[^0-9]/', '', $phone) . '@cochonsdafrik.com';
+    }
+
+    /**
+     * CinetPay rejects phone numbers without a country code ("not mobile"). Accounts are stored
+     * in local Ivorian format (e.g. 0704817000); normalize to +225 international format.
+     */
+    protected function normalizePhoneForCinetPay(string $phone): string
+    {
+        $digits = preg_replace('/[^0-9+]/', '', $phone);
+
+        if (str_starts_with($digits, '+')) {
+            return $digits;
+        }
+
+        if (str_starts_with($digits, '225')) {
+            return '+' . $digits;
+        }
+
+        // Depuis la réforme de numérotation de 2021, les numéros ivoiriens locaux
+        // (10 chiffres, ex: 0707000000) s'utilisent tels quels après le +225, sans
+        // retirer le 0 initial (ex: +2250707000000, cf. exemples de la doc CinetPay).
+        return '+225' . $digits;
     }
 
     /**

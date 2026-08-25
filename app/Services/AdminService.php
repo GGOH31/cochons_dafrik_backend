@@ -10,11 +10,16 @@ use App\Models\Dispute;
 use App\Models\Escrow;
 use App\Models\Payment;
 use App\Models\Order;
+use App\Models\Withdrawal;
+use App\Models\WalletTransaction;
 use App\Enums\AccountStatus;
 use App\Enums\DisputeStatus;
 use App\Enums\EscrowStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\OrderStatus;
+use App\Enums\WithdrawalStatus;
+use App\Enums\TxType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class AdminService
@@ -178,5 +183,193 @@ class AdminService
 
             return $dispute;
         });
+    }
+
+    /**
+     * List restaurants with optional filters (status, search by name).
+     */
+    public function getRestaurants(array $filters): Builder
+    {
+        $query = Restaurant::with(['owner', 'wallet', 'commissionOverride'])->orderBy('created_at', 'desc');
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (!empty($filters['search'])) {
+            $query->where('name', 'ILIKE', '%' . $filters['search'] . '%');
+        }
+
+        return $query;
+    }
+
+    /**
+     * List platform users (clients, vendeurs, grossistes) with optional filters.
+     */
+    public function getUsers(array $filters): Builder
+    {
+        $query = User::with('restaurant')->orderBy('created_at', 'desc');
+
+        if (!empty($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('phone', 'ILIKE', "%{$search}%")
+                    ->orWhere('email', 'ILIKE', "%{$search}%");
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Activate/suspend/reject a user account.
+     */
+    public function updateUserStatus(string $userId, string $status): User
+    {
+        $user = User::findOrFail($userId);
+        $user->update(['status' => $status]);
+
+        return $user;
+    }
+
+    /**
+     * List orders across the platform with optional filters.
+     */
+    public function getOrders(array $filters): Builder
+    {
+        $query = Order::with(['buyer', 'restaurant'])->orderBy('created_at', 'desc');
+
+        if (!empty($filters['status'])) {
+            $query->whereIn('status', explode(',', $filters['status']));
+        }
+
+        if (!empty($filters['restaurant_id'])) {
+            $query->where('restaurant_id', $filters['restaurant_id']);
+        }
+
+        if (!empty($filters['search'])) {
+            $query->where('reference', 'ILIKE', '%' . $filters['search'] . '%');
+        }
+
+        return $query;
+    }
+
+    /**
+     * List withdrawal requests with optional status filter.
+     */
+    public function getWithdrawals(array $filters): Builder
+    {
+        $query = Withdrawal::with(['wallet.restaurant', 'processor'])->orderBy('created_at', 'desc');
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Mark a withdrawal request as done (paid out manually) or rejected
+     * (refunding the amount back to the restaurant's wallet).
+     */
+    public function processWithdrawal(string $withdrawalId, string $adminId, string $action): Withdrawal
+    {
+        $withdrawal = Withdrawal::findOrFail($withdrawalId);
+
+        if (!in_array($withdrawal->status, [WithdrawalStatus::PENDING, WithdrawalStatus::PROCESSING], true)) {
+            throw new \Exception('Cette demande de retrait a déjà été traitée.');
+        }
+
+        if (!in_array($action, ['done', 'rejected'], true)) {
+            throw new \Exception('Action non supportée.');
+        }
+
+        return DB::transaction(function () use ($withdrawal, $adminId, $action) {
+            if ($action === 'rejected') {
+                $wallet = $withdrawal->wallet;
+                $wallet->increment('balance_fcfa', $withdrawal->amount_fcfa);
+
+                WalletTransaction::create([
+                    'wallet_id' => $wallet->id,
+                    'tx_type' => TxType::REFUND,
+                    'amount_fcfa' => $withdrawal->amount_fcfa,
+                    'balance_after' => $wallet->fresh()->balance_fcfa,
+                    'note' => "Retrait rejeté, montant recrédité au portefeuille.",
+                ]);
+            }
+
+            $withdrawal->update([
+                'status' => $action === 'done' ? WithdrawalStatus::DONE : WithdrawalStatus::REJECTED,
+                'processed_by' => $adminId,
+                'processed_at' => now(),
+            ]);
+
+            return $withdrawal;
+        });
+    }
+
+    /**
+     * List disputes, open ones by default.
+     */
+    public function getDisputes(array $filters): Builder
+    {
+        $query = Dispute::with(['order', 'opener'])->orderBy('created_at', 'desc');
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query;
+    }
+
+    /**
+     * List all platform settings.
+     */
+    public function getPlatformSettings()
+    {
+        return PlatformSetting::orderBy('key')->get();
+    }
+
+    /**
+     * Daily order report for a single restaurant, for the Excel export & yearly chart
+     * on the admin dashboard: per-day counts of successful (completed), delivered,
+     * cancelled/refused and disputed (complaint) orders, plus the total order value.
+     */
+    public function getRestaurantDailyReport(string $restaurantId, string $from, string $to): array
+    {
+        Restaurant::findOrFail($restaurantId);
+
+        $rows = DB::table('orders')
+            ->selectRaw('DATE(created_at) as date')
+            ->selectRaw("COUNT(*) FILTER (WHERE status = 'completed') as success")
+            ->selectRaw("COUNT(*) FILTER (WHERE status = 'delivered') as delivered")
+            ->selectRaw("COUNT(*) FILTER (WHERE status IN ('cancelled', 'refused')) as cancelled")
+            ->selectRaw("COUNT(*) FILTER (WHERE status = 'disputed') as complaints")
+            ->selectRaw('COUNT(*) as total_orders')
+            ->selectRaw("COALESCE(SUM(total_fcfa) FILTER (WHERE status != 'pending_payment'), 0) as total_fcfa")
+            ->where('restaurant_id', $restaurantId)
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+            ->groupByRaw('DATE(created_at)')
+            ->orderByRaw('DATE(created_at)')
+            ->get();
+
+        return $rows->map(fn ($row) => [
+            'date' => $row->date,
+            'success' => (int) $row->success,
+            'delivered' => (int) $row->delivered,
+            'cancelled' => (int) $row->cancelled,
+            'complaints' => (int) $row->complaints,
+            'total_orders' => (int) $row->total_orders,
+            'total_fcfa' => (int) $row->total_fcfa,
+        ])->all();
     }
 }
